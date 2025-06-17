@@ -1,11 +1,14 @@
 const Restaurant = require('../models/Restaurant');
 const { uploadFile } = require('../utils/s3');
 const { sendEmail, sendVerificationEmail, emailTemplates } = require('../utils/email');
-const redis = require('../config/redis');
 const BaseController = require('./BaseController');
 const { User } = require('../models');
 const { sequelize } = require('../config/database'); // ADD THIS LINE
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
+
+// Add in-memory store
+const otpStore = new Map();
+const emailVerificationStore = new Map();
 
 class RestaurantController extends BaseController {
   constructor() {
@@ -49,8 +52,11 @@ class RestaurantController extends BaseController {
         });
       }
 
-      // Store OTP in Redis with expiration
-      await redis.set(`restaurant_otp:${email}`, otp, 'EX', expiresIn);
+      // Store OTP in in-memory store
+      otpStore.set(email, {
+          otp,
+          expiresAt: Date.now() + (expiresIn * 1000)
+      });
 
       res.status(200).json({
         success: true,
@@ -73,8 +79,9 @@ class RestaurantController extends BaseController {
     try {
       const { email, otp } = req.body;
 
-      // Get stored OTP from Redis
-      const storedOTP = await redis.get(`restaurant_otp:${email}`);
+      // Get stored OTP from in-memory store
+      const storedOTPData = otpStore.get(email);
+      const storedOTP = storedOTPData && storedOTPData.expiresAt > Date.now() ? storedOTPData.otp : null;
       
       if (!storedOTP) {
         return res.status(400).json({
@@ -90,11 +97,14 @@ class RestaurantController extends BaseController {
         });
       }
 
-      // Delete OTP from Redis
-      await redis.del(`restaurant_otp:${email}`);
+      // Delete OTP from in-memory store
+      otpStore.delete(email);
 
       // Mark email as verified
-      await redis.set(`restaurant_email_verified:${email}`, 'true', 'EX', 3600); // 1 hour to complete registration
+      emailVerificationStore.set(email, {
+          verified: true,
+          expiresAt: Date.now() + (3600 * 1000)
+      });
 
       res.status(200).json({
         success: true,
@@ -437,7 +447,8 @@ uploadRestaurantDocuments(files) {
       const { email } = req.body;
 
       // Check if email is verified
-      const isVerified = await redis.get(`restaurant_email_verified:${email}`);
+      const verificationData = emailVerificationStore.get(email);
+      const isVerified = verificationData && verificationData.expiresAt > Date.now() && verificationData.verified;
       if (!isVerified) {
         return res.status(400).json({
           success: false,

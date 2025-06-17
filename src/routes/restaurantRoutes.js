@@ -3,7 +3,7 @@
 const express = require('express');
 const router = express.Router();
 const { body } = require('express-validator');
-const restaurantController = require('../controllers/RestaurantController');
+const restaurantController = require('../controllers/restaurantController');
 const { protect } = require('../middleware/auth');
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 

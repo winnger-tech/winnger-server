@@ -9,7 +9,10 @@
     "build": "babel src -d dist",
     "test": "jest --detectOpenHandles --forceExit",
     "test:watch": "jest --watch",
-    "start:prod": "node dist/index.js"
+    "start:prod": "node dist/index.js",
+    "migrate": "sequelize-cli db:migrate",
+    "migrate:undo": "sequelize-cli db:migrate:undo",
+    "migrate:undo:all": "sequelize-cli db:migrate:undo:all"
     },
   "dependencies": {
     "aws-sdk": "^2.1692.0",

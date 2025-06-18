@@ -3,6 +3,7 @@ const router = express.Router();
 const { protect, authorize } = require('../middleware/auth');
 const {
   login,
+  register,
   getDashboardStats,
   getAllDrivers,
   getAllRestaurants,
@@ -15,6 +16,7 @@ const {
 
 // Public routes
 router.post('/login', login);
+router.post('/register', register);
 
 // Protected routes - only accessible by authenticated admins
 router.use(protect);

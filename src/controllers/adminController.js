@@ -237,3 +237,57 @@ exports.updateRestaurantPayment = async (req, res) => {
     res.status(500).json({ success: false, error: 'Failed to update payment status' });
   }
 };
+
+exports.register = async (req, res) => {
+  try {
+    const { name, email, password, role } = req.body;
+
+    // Validate required fields
+    if (!name || !email || !password) {
+      return res.status(400).json({
+        success: false,
+        message: 'Please provide name, email and password'
+      });
+    }
+
+    // Check if admin already exists
+    const existingAdmin = await Admin.findOne({ where: { email } });
+    if (existingAdmin) {
+      return res.status(400).json({
+        success: false,
+        message: 'Admin with this email already exists'
+      });
+    }
+
+    // Create new admin
+    const admin = await Admin.create({
+      name,
+      email,
+      password,
+      role: role || 'admin' // Default to 'admin' if role not specified
+    });
+
+    // Generate token
+    const token = jwt.sign(
+      { id: admin.id, role: admin.role },
+      process.env.JWT_SECRET,
+      { expiresIn: '24h' }
+    );
+
+    res.status(201).json({
+      success: true,
+      token,
+      data: {
+        id: admin.id,
+        name: admin.name,
+        email: admin.email,
+        role: admin.role
+      }
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+};

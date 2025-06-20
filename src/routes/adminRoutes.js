@@ -35,5 +35,19 @@ router.put('/restaurants/:id/payment', updateRestaurantPayment);
 
 // Export routes
 router.get('/export', exportData);
+router.get('/me', protect, async (req, res) => {
+  try {
+    const admin = await Admin.findById(req.admin.id);
+    res.status(200).json({
+      success: true,
+      data: admin
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+});
 
 module.exports = router; 

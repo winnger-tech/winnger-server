@@ -13,6 +13,7 @@ const {
   updateRestaurantPayment,
   exportData
 } = require('../controllers/adminController');
+const { Admin } = require('../models');
 
 // Public routes
 router.post('/login', login);
@@ -37,5 +38,20 @@ router.put('/restaurants/:id/payment', updateRestaurantPayment);
 
 // Export routes
 router.get('/export', exportData);
+router.get('/me', protect, async (req, res) => {
+  try {
+    console.log('🔐 req.admin:', req.admin);
+    const admin = await Admin.findById(req.admin.id);
+    res.status(200).json({
+      success: true,
+      data: admin
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+});
 
 module.exports = router; 

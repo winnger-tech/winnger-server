@@ -1,7 +1,9 @@
 // updated_adminController.js
-const Driver = require('../models/Driver');
-const Restaurant = require('../models/Restaurant');
-const {Admin} = require('../models');
+const { Driver, Restaurant, Admin } = require('../models'); // ✅ use this instead of individual files
+
+//const Driver = require('../models/Driver');
+//const Restaurant = require('../models/Restaurant');
+//const {Admin} = require('../models');
 const jwt = require('jsonwebtoken');
 const { sendEmail } = require('../utils/email');
 const { Op } = require('sequelize');

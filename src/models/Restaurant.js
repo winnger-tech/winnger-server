@@ -51,6 +51,10 @@ module.exports = (sequelize) => {
         }
       }
     },
+    ownerAddress: {
+      type: DataTypes.STRING,
+      allowNull: true // Can be null
+    },
     identificationType: {
       type: DataTypes.ENUM('licence', 'pr_card', 'passport', 'medical_card', 'provincial_id'),
       allowNull: false
@@ -64,13 +68,13 @@ module.exports = (sequelize) => {
         notEmpty: true
       }
     },
-    // businessEmail: {
-    //   type: DataTypes.STRING,
-    //   allowNull: false,
-    //   validate: {
-    //     isEmail: true
-    //   }
-    // },
+    businessEmail: {
+      type: DataTypes.STRING,
+      allowNull: false,
+      validate: {
+        isEmail: true
+      }
+    },
     // businessPhone: {
     //   type: DataTypes.STRING,
     //   allowNull: false,
@@ -82,7 +86,11 @@ module.exports = (sequelize) => {
     //     }
     //   }
     // },
-    businessAddress: {
+    // businessAddress: {
+    //   type: DataTypes.STRING,
+    //   allowNull: false
+    // },
+    restaurantAddress: {
       type: DataTypes.STRING,
       allowNull: false
     },
@@ -102,6 +110,11 @@ module.exports = (sequelize) => {
       validate: {
         is: /^[A-Za-z]\d[A-Za-z][ -]?\d[A-Za-z]\d$/
       }
+    },
+    businessType: {
+      type: DataTypes.ENUM('Solo proprietor', 'Corporate'),
+      allowNull: false,
+      defaultValue: 'Solo proprietor'
     },
     
     // Banking Information
@@ -179,9 +192,50 @@ module.exports = (sequelize) => {
       type: DataTypes.STRING,
       allowNull: false
     },
+
+    //  drivingLicenseUrl: {
+    //   type: DataTypes.STRING,
+    //   allowNull: false
+    // },
     voidChequeUrl: {
       type: DataTypes.STRING,
       allowNull: false
+    },
+    hstDocumentUrl: {
+      type: DataTypes.STRING,
+      allowNull: true
+    },
+    // NEW: Article of Incorporation Document
+    articleOfIncorporationUrl: {
+      type: DataTypes.STRING,
+      allowNull: true
+    },
+    articleOfIncorporationExpiryDate: {
+      type: DataTypes.DATE,
+      allowNull: true,
+      validate: {
+        isFutureDate(value) {
+          if (value && new Date(value) < new Date()) {
+            throw new Error('Article of Incorporation expiry date cannot be in the past');
+          }
+        }
+      }
+    },
+    // NEW: Food Handling Certificate Document
+    foodHandlingCertificateUrl: {
+      type: DataTypes.STRING,
+      allowNull: true
+    },
+    foodHandlingCertificateExpiryDate: {
+      type: DataTypes.DATE,
+      allowNull: true,
+      validate: {
+        isFutureDate(value) {
+          if (value && new Date(value) < new Date()) {
+            throw new Error('Food Handling Certificate expiry date cannot be in the past');
+          }
+        }
+      }
     },
     
     // Menu Details

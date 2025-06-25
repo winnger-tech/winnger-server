@@ -2,3 +2,15 @@ node_modules
 
 .DS_Store
 .DS_Store
+# Environment variables
+.env
+
+# CSV or data files
+*.csv
+
+# Node modules (if it's a Node.js project)
+node_modules/
+
+# Logs
+logs/
+*.log

@@ -27,7 +27,14 @@ const allowedOrigins = [
 
 // Middleware
 app.use(helmet());
-app.use(cors());
+//app.use(cors());
+const corsOptions = {
+  origin: allowedOrigins,
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization','Accept']
+};
+app.use(cors(corsOptions));
 
 // Body parsing middleware
 app.use(express.json());

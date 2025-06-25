@@ -235,6 +235,7 @@ module.exports = {
         taxInfo: { type: Sequelize.JSONB, allowNull: false },
         businessDocumentUrl: { type: Sequelize.STRING, allowNull: false },
         businessLicenseUrl: { type: Sequelize.STRING, allowNull: false },
+        //drivingLicenseUrl: { type: Sequelize.STRING, allowNull: false },
         voidChequeUrl: { type: Sequelize.STRING, allowNull: false },
         menuDetails: { type: Sequelize.JSONB, allowNull: false },
         hoursOfOperation: { type: Sequelize.JSONB, allowNull: false },

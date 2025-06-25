@@ -51,13 +51,17 @@ const driverUpload = multer({
 // Using the correct field names from your restaurantRoutes.js file
 const restaurantDocumentFields = [
     { name: 'businessDocument', maxCount: 1 }, // For Bank Statement/Card
-    { name: 'voidCheque', maxCount: 1 },       // For the mandatory void cheque
+    { name: 'voidCheque', maxCount: 1 }, 
+    //{ name: 'drivingLicense', maxCount: 1 },      // For the mandatory void cheque
     { name: 'businessLicense', maxCount: 1 },
     //{ name: 'fssaiCertificate', maxCount: 1 },
     //{ name: 'gstCertificate', maxCount: 1 },
     //{ name: 'panCard', maxCount: 1 },
     //{ name: 'voidCheque', maxCount: 1 },
     //{ name: 'menuImages', maxCount: 10 }
+    { name: 'hstDocument', maxCount: 1 }, // NEW
+    { name: 'articleOfIncorporation', maxCount: 1 }, // NEW
+    { name: 'foodHandlingCertificate', maxCount: 1 }, // NEW
 ];
 
 const restaurantUpload = multer({

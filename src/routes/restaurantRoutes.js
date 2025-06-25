@@ -23,26 +23,59 @@ const {
   createPaymentIntent
 } = restaurantController;
 
-// Validation middleware (no changes needed here)
+// Validation middleware for restaurant registration
 const validateRestaurantRegistration = [
   body('ownerName').notEmpty().withMessage('Owner name is required'),
-  body('email').isEmail().withMessage('Please provide a valid email'),
+  body('email').trim().isEmail().withMessage('Please provide a valid email'),
   body('password').isLength({ min: 6 }).withMessage('Password must be at least 6 characters'),
   body('phone').notEmpty().withMessage('Phone number is required'),
-  body('identificationType').isIn(['licence', 'pr_card', 'passport', 'medical_card', 'provincial_id'])
+  
+  // NEW: Owner Address Validation (optional)
+  body('ownerAddress').optional().notEmpty().withMessage('Owner address cannot be empty if provided'), 
+  
+  body('identificationType').trim().isIn(['licence', 'pr_card', 'passport', 'medical_card', 'provincial_id'])
     .withMessage('Invalid identification type'),
   body('restaurantName').notEmpty().withMessage('Restaurant name is required'),
-  body('businessAddress').notEmpty().withMessage('Business address is required'),
+  
+  // NEW: Business Email Validation (optional)
+  body('businessEmail').optional().trim().isEmail().withMessage('Please provide a valid business email if provided'), 
+  
+  // RENAMED: businessAddress to restaurantAddress
+  body('restaurantAddress').notEmpty().withMessage('Restaurant address is required'), 
   body('city').notEmpty().withMessage('City is required'),
-  body('province').isIn(['AB', 'BC', 'MB', 'NB', 'NL', 'NS', 'NT', 'NU', 'ON', 'PE', 'QC', 'SK', 'YT'])
+  body('province').trim().isIn(['AB', 'BC', 'MB', 'NB', 'NL', 'NS', 'NT', 'NU', 'ON', 'PE', 'QC', 'SK', 'YT'])
     .withMessage('Invalid province'),
-  body('postalCode').matches(/^[A-Za-z]\d[A-Za-z][ -]?\d[A-Za-z]\d$/)
+  body('postalCode').trim().matches(/^[A-Za-z]\d[A-Za-z][ -]?\d[A-Za-z]\d$/)
     .withMessage('Invalid postal code format'),
   body('bankingInfo').isString().withMessage('Banking info must be a JSON string'),
   body('taxInfo').isString().withMessage('Tax info must be a JSON string'),
   body('menuDetails').isString().withMessage('Menu details must be a JSON string'),
   body('hoursOfOperation').isString().withMessage('Hours of operation must be a JSON string'),
-  body('stripePaymentIntentId').notEmpty().withMessage('Stripe Payment Intent ID is required')
+  body('stripePaymentIntentId').notEmpty().withMessage('Stripe Payment Intent ID is required'),
+  
+  // NEW: Business Type Validation
+  body('businessType').trim().isIn(['Solo proprietor', 'Corporate'])
+    .withMessage('Invalid business type. Must be "Solo proprietor" or "Corporate"'),
+
+  // NEW: Expiry Date Validations (optional)
+  body('articleOfIncorporationExpiryDate')
+    .optional({ checkFalsy: true }) // Allow empty or null, but if present, validate
+    .isISO8601().toDate().withMessage('Invalid Article of Incorporation expiry date format')
+    .custom((value) => {
+      if (new Date(value) < new Date()) {
+        throw new Error('Article of Incorporation expiry date cannot be in the past');
+      }
+      return true;
+    }),
+  body('foodHandlingCertificateExpiryDate')
+    .optional({ checkFalsy: true }) // Allow empty or null, but if present, validate
+    .isISO8601().toDate().withMessage('Invalid Food Handling Certificate expiry date format')
+    .custom((value) => {
+      if (new Date(value) < new Date()) {
+        throw new Error('Food Handling Certificate expiry date cannot be in the past');
+      }
+      return true;
+    }),
 ];
 
 // Email verification routes
@@ -52,7 +85,7 @@ router.post('/verify-otp', verifyOTP);
 // Payment route
 router.post('/create-payment-intent', createPaymentIntent);
 
-// Create checkout session for restaurant registration
+// Create checkout session for restaurant registration (unchanged)
 router.post('/create-checkout-session', async (req, res) => {
   try {
     const { amount, email, restaurantId } = req.body;
@@ -90,8 +123,6 @@ router.post('/create-checkout-session', async (req, res) => {
 });
 
 // Register new restaurant
-// ‼️ STEP 2: Use the 'restaurantUpload' variable directly.
-// The .fields() configuration is now handled inside middleware/upload.js
 router.post(
   '/',
   restaurantUpload,
@@ -100,7 +131,7 @@ router.post(
 );
 
 // Protected routes (no changes needed here)
-router.use(protect);
+//router.use(protect);
 
 router.route('/profile')
   .get(getProfile)

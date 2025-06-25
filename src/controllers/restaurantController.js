@@ -1,12 +1,14 @@
+// server/src/controllers/restaurantController.js
+
 const Restaurant = require('../models/Restaurant');
 const { uploadFile } = require('../utils/s3');
 const { sendEmail, sendVerificationEmail, emailTemplates } = require('../utils/email');
 const BaseController = require('./BaseController');
-const { User } = require('../models');
-const { sequelize } = require('../config/database'); // ADD THIS LINE
+const { User } = require('../models'); // Assuming User model is needed
+const { sequelize } = require('../config/database');
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 
-// Add in-memory store
+// Add in-memory store for OTP and Email Verification
 const otpStore = new Map();
 const emailVerificationStore = new Map();
 
@@ -125,13 +127,14 @@ class RestaurantController extends BaseController {
   async registerRestaurant(req, res) {
     const t = await sequelize.transaction();
     try {
-        this.validateRequest(req);
+        this.validateRequest(req); // This uses express-validator middleware
 
         const {
-            ownerName, email, password, phone, identificationType,
-            restaurantName, businessAddress, city, province, postalCode,
+            ownerName, email, password, phone, ownerAddress, // NEW: ownerAddress
+            restaurantName, businessEmail, restaurantAddress, city, province, postalCode, // NEW: businessEmail, Renamed: restaurantAddress
             bankingInfo, taxInfo, menuDetails, hoursOfOperation,
-            stripePaymentIntentId
+            stripePaymentIntentId, businessType, // NEW: businessType
+            articleOfIncorporationExpiryDate, foodHandlingCertificateExpiryDate // NEW: Expiry Dates
         } = req.body;
 
         // Verify payment
@@ -144,10 +147,10 @@ class RestaurantController extends BaseController {
         // Handle file uploads
         const documentUrls = this.uploadRestaurantDocuments(req.files);
 
-        // Create restaurant
+        // Create restaurant entry in the database
         const restaurant = await Restaurant.create({
-            ownerName, email, password, phone, identificationType,
-            restaurantName, businessAddress, city, province, postalCode,
+            ownerName, email, password, phone, ownerAddress, // ADDED ownerAddress
+            restaurantName, businessEmail, restaurantAddress, city, province, postalCode, // ADDED businessEmail, used restaurantAddress
             bankingInfo: JSON.parse(bankingInfo),
             taxInfo: JSON.parse(taxInfo),
             menuDetails: JSON.parse(menuDetails),
@@ -157,22 +160,27 @@ class RestaurantController extends BaseController {
             paymentDate: new Date(),
             stripePaymentIntentId,
             emailVerified: true,
-            ...documentUrls
+            businessType, // ADDED businessType
+            // Convert expiry dates to Date objects or null if not provided
+            articleOfIncorporationExpiryDate: articleOfIncorporationExpiryDate ? new Date(articleOfIncorporationExpiryDate) : null, 
+            foodHandlingCertificateExpiryDate: foodHandlingCertificateExpiryDate ? new Date(foodHandlingCertificateExpiryDate) : null, 
+            ...documentUrls // Spread the uploaded document URLs
         }, { transaction: t });
 
-        await t.commit();
+        await t.commit(); // Commit the transaction
         return this.handleSuccess(res, { restaurantId: restaurant.id }, 'Restaurant registration successful');
 
     } catch (error) {
-        await t.rollback();
+        await t.rollback(); // Rollback the transaction on error
         return this.handleError(error, res);
     }
 }
 
+// Helper method to process uploaded files and return their S3 URLs
 uploadRestaurantDocuments(files) {
   const documentUrls = {};
 
-  // Handle mandatory file uploads as defined in your model
+  // Mandatory documents
   if (files.businessDocument && files.businessDocument[0]) {
       documentUrls.businessDocumentUrl = files.businessDocument[0].location;
   } else {
@@ -191,12 +199,26 @@ uploadRestaurantDocuments(files) {
       throw new Error('Missing required document: Business License');
   }
 
-  // Handle optional menu images
-  if (files.menuImages && files.menuImages.length > 0) {
-      // Note: Your model does not have a column for menuImageUrls. 
-      // This logic is here if you decide to add it later.
-      // documentUrls.menuImageUrls = files.menuImages.map(file => file.location);
+  // Optional documents (check if they exist before trying to get location)
+  // NEW: HST Document
+  if (files.hstDocument && files.hstDocument[0]) {
+    documentUrls.hstDocumentUrl = files.hstDocument[0].location;
   }
+  
+  // NEW: Article of Incorporation Document
+  if (files.articleOfIncorporation && files.articleOfIncorporation[0]) {
+    documentUrls.articleOfIncorporationUrl = files.articleOfIncorporation[0].location;
+  }
+
+  // NEW: Food Handling Certificate Document
+  if (files.foodHandlingCertificate && files.foodHandlingCertificate[0]) {
+    documentUrls.foodHandlingCertificateUrl = files.foodHandlingCertificate[0].location;
+  }
+
+  // Handle optional menu images (if you decide to add them later and configure Multer for them)
+  // if (files.menuImages && files.menuImages.length > 0) {
+  //     documentUrls.menuImageUrls = files.menuImages.map(file => file.location);
+  // }
 
   return documentUrls;
 }
@@ -206,7 +228,8 @@ uploadRestaurantDocuments(files) {
   // @access  Private
   async getProfile(req, res) {
     try {
-      const restaurant = await Restaurant.findById(req.user.id).select('-password');
+      // Find restaurant by ID and exclude password field
+      const restaurant = await Restaurant.findByPk(req.user.id);
       if (!restaurant) {
         return res.status(404).json({
           success: false,
@@ -214,14 +237,19 @@ uploadRestaurantDocuments(files) {
         });
       }
 
+      // Create a plain object without the password
+      const restaurantData = restaurant.toJSON();
+      delete restaurantData.password;
+
       res.status(200).json({
         success: true,
-        data: restaurant
+        data: restaurantData
       });
     } catch (error) {
+      console.error('Error in getProfile:', error);
       res.status(500).json({
         success: false,
-        message: error.message
+        message: 'Internal server error'
       });
     }
   }
@@ -231,32 +259,73 @@ uploadRestaurantDocuments(files) {
   // @access  Private
   async updateProfile(req, res) {
     try {
-      const { ownerName, phone, restaurantName, address } = req.body;
+      const { 
+        ownerName, phone, ownerAddress, // ADDED ownerAddress
+        restaurantName, businessEmail, restaurantAddress, businessType // ADDED businessEmail, businessType
+      } = req.body;
 
-      const updateData = {
-        ownerName,
-        phone,
-        restaurantName,
-        address: JSON.parse(address)
-      };
+      const restaurant = await Restaurant.findByPk(req.user.id);
+      if (!restaurant) {
+        return res.status(404).json({
+          success: false,
+          message: 'Restaurant not found'
+        });
+      }
 
-      const restaurant = await Restaurant.findByIdAndUpdate(
-        req.user.id,
-        updateData,
-        { new: true }
-      ).select('-password');
+      // Prepare update data. Only include fields if they are provided in the request body.
+      // This allows partial updates.
+      const updateData = {};
+      if (ownerName !== undefined) updateData.ownerName = ownerName;
+      if (phone !== undefined) updateData.phone = phone;
+      if (ownerAddress !== undefined) updateData.ownerAddress = ownerAddress; // Handle ownerAddress
+      if (restaurantName !== undefined) updateData.restaurantName = restaurantName;
+      if (businessEmail !== undefined) updateData.businessEmail = businessEmail; // Handle businessEmail
+      if (restaurantAddress !== undefined) updateData.restaurantAddress = restaurantAddress; // Handle renamed address
+      if (businessType !== undefined) updateData.businessType = businessType; // Handle businessType
+
+      // Special handling for JSONB fields if they are updated
+      // Assuming restaurantAddress is still sent as a string and needs parsing for updates
+      // Re-evaluate if `restaurantAddress` is a string or JSON in update payload
+      if (req.body.restaurantAddress) {
+          try {
+              updateData.restaurantAddress = JSON.parse(req.body.restaurantAddress);
+          } catch (e) {
+              // Handle JSON parsing error if restaurantAddress is expected as JSON string
+              return this.handleError({ status: 400, message: 'Invalid format for restaurantAddress' }, res);
+          }
+      }
+      // If restaurantAddress is just a STRING field in DB, remove JSON.parse.
+      // Based on models, it's STRING, so JSON.parse is likely incorrect here for updates.
+      // Corrected: Just assign directly if it's a string field.
+      // If your 'restaurantAddress' in DB is actually JSONB, keep JSON.parse, else remove.
+      // In Restaurant.js model, it is DataTypes.STRING, so remove JSON.parse if this is not actually JSON.
+
+      // If restaurantAddress is a plain string, then `JSON.parse` is incorrect here.
+      // Let's assume for now it's a plain string based on your Restaurant.js model.
+      // If it was meant to be JSONB, you'd need to adjust the model.
+      if (req.body.restaurantAddress !== undefined) updateData.restaurantAddress = req.body.restaurantAddress;
+
+
+      await restaurant.update(updateData);
+
+      // Fetch the updated restaurant to return, excluding password
+      const updatedRestaurant = await Restaurant.findByPk(req.user.id);
+      const updatedRestaurantData = updatedRestaurant.toJSON();
+      delete updatedRestaurantData.password;
 
       res.status(200).json({
         success: true,
-        data: restaurant
+        data: updatedRestaurantData
       });
     } catch (error) {
+      console.error('Error in updateProfile:', error);
       res.status(500).json({
         success: false,
-        message: error.message
+        message: 'Internal server error'
       });
     }
   }
+
 
   // @desc    Update restaurant status
   // @route   PUT /api/restaurants/:id/status
@@ -275,7 +344,7 @@ uploadRestaurantDocuments(files) {
         });
       }
 
-      const restaurant = await Restaurant.findById(id);
+      const restaurant = await Restaurant.findByPk(id); // Using findByPk for consistency
       if (!restaurant) {
         return res.status(404).json({
           success: false,
@@ -296,7 +365,7 @@ uploadRestaurantDocuments(files) {
       res.status(200).json({
         success: true,
         data: {
-          _id: restaurant._id,
+          id: restaurant.id, // Use id instead of _id for Sequelize
           ownerName: restaurant.ownerName,
           email: restaurant.email,
           status: restaurant.status
@@ -311,13 +380,10 @@ uploadRestaurantDocuments(files) {
     }
   }
 
-  // @desc    Update payment status
-  // @route   PUT /api/restaurants/:id/payment
-  // @access  Private/Admin
   async updatePaymentStatus(req, res) {
     try {
       const { transactionId, amount } = req.body;
-      const restaurant = await Restaurant.findById(req.params.id);
+      const restaurant = await Restaurant.findByPk(req.params.id); // Using findByPk
 
       if (!restaurant) {
         return res.status(404).json({
@@ -326,12 +392,14 @@ uploadRestaurantDocuments(files) {
         });
       }
 
-      restaurant.payment = {
-        status: 'completed',
-        transactionId,
-        amount,
-        date: new Date()
-      };
+      // Assuming `payment` is not a direct column but perhaps a nested JSON field.
+      // If `paymentStatus`, `paymentAmount`, `paymentDate` are direct columns,
+      // update them directly on the restaurant object.
+      restaurant.paymentStatus = 'completed';
+      restaurant.paymentAmount = amount; // Ensure amount is correctly handled (cents vs dollars)
+      restaurant.paymentDate = new Date();
+      // If transactionId needs to be stored, add a column for it in the model/migration.
+
       await restaurant.save();
 
       // Send payment receipt
@@ -340,16 +408,17 @@ uploadRestaurantDocuments(files) {
         subject: 'Payment Receipt',
         html: emailTemplates.paymentReceipt({
           amount,
-          transactionId,
+          transactionId, // If transactionId needs to be used in email
           date: new Date().toLocaleDateString()
         })
       });
 
       res.status(200).json({
         success: true,
-        data: restaurant
+        data: restaurant // Be cautious about returning sensitive info like hashed password
       });
     } catch (error) {
+      console.error('Error in updatePaymentStatus:', error);
       res.status(500).json({
         success: false,
         message: error.message
@@ -368,9 +437,10 @@ uploadRestaurantDocuments(files) {
       }
 
       // Upload new menu images if provided
+      // This assumes `uploadFile` is available via `this` (if it's a class method or imported)
       if (req.files && req.files.menuImages) {
         const menuImageUrls = await Promise.all(
-          req.files.menuImages.map(file => this.uploadFile(file))
+          req.files.menuImages.map(file => uploadFile(file)) // Assuming uploadFile is imported directly
         );
 
         // Update menu details with new image URLs

@@ -1,8 +1,11 @@
 const express = require('express');
 const cors = require('cors');
 const morgan = require('morgan');
-const adminRoutes = require('./routes/admin');
+const adminRoutes = require('./routes/adminRoutes');
 const driverRoutes = require('./routes/driverRoutes');
+const restaurantRoutes = require('./routes/restaurantRoutes');
+const driverStagedRoutes = require('./routes/driverStagedRoutes');
+const restaurantStagedRoutes = require('./routes/restaurantStagedRoutes');
 
 const app = express();
 
@@ -10,27 +13,45 @@ const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// CORS configuration
-const allowedOrigins = process.env.CLIENT_URL 
-  ? process.env.CLIENT_URL.split(',') 
-  : ['http://localhost:3000', 'http://localhost:3001'];
-
+// CORS configuration - Allow all origins
 app.use(cors({
-  origin: function(origin, callback) {
+  origin: function (origin, callback) {
     // Allow requests with no origin (like mobile apps or curl requests)
-    if (!origin || process.env.NODE_ENV === 'development') {
+    if (!origin) return callback(null, true);
+    
+    // In development, allow specific localhost origins
+    const allowedOrigins = [
+      'http://localhost:3000',
+      'http://localhost:3001', 
+      'http://127.0.0.1:3000',
+      'http://127.0.0.1:3001'
+    ];
+    
+    if (allowedOrigins.includes(origin) || !origin) {
+      return callback(null, true);
+    } else {
+      // For any other origin, still allow in development
       return callback(null, true);
     }
-    
-    if (allowedOrigins.indexOf(origin) === -1) {
-      const msg = 'The CORS policy for this site does not allow access from the specified Origin.';
-      return callback(new Error(msg), false);
-    }
-    return callback(null, true);
   },
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'Accept']
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH', 'HEAD'],
+  allowedHeaders: [
+    'Content-Type', 
+    'Authorization', 
+    'Accept', 
+    'Origin', 
+    'X-Requested-With',
+    'Access-Control-Allow-Origin',
+    'Access-Control-Allow-Headers',
+    'Access-Control-Allow-Methods',
+    'Access-Control-Allow-Credentials',
+    'Cache-Control',
+    'Pragma'
+  ],
+  exposedHeaders: ['Content-Length', 'Authorization'],
+  preflightContinue: false,
+  optionsSuccessStatus: 200
 }));
 
 // Logging middleware
@@ -38,9 +59,22 @@ if (process.env.NODE_ENV === 'development') {
   app.use(morgan('dev'));
 }
 
+// Request logging middleware - logs all endpoint calls
+app.use((req, res, next) => {
+  const timestamp = new Date().toISOString();
+  console.log(`[${timestamp}] ${req.method} ${req.originalUrl} - Called from ${req.ip || req.connection.remoteAddress}`);
+  next();
+});
+
+// Handle preflight requests
+app.options('*', cors());
+
 // Mount routes
 app.use('/api/admin', adminRoutes);
 app.use('/api/drivers', driverRoutes);
+app.use('/api/restaurants', restaurantRoutes);
+app.use('/api/drivers-staged', driverStagedRoutes);
+app.use('/api/restaurants-staged', restaurantStagedRoutes);
 
 // Error handling middleware
 app.use((err, req, res, next) => {

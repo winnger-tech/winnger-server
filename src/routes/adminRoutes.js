@@ -7,6 +7,10 @@ const {
   getDashboardStats,
   getAllDrivers,
   getAllRestaurants,
+  getDriverById,
+  getRestaurantById,
+  getAllDriversDetailed,
+  getAllRestaurantsDetailed,
   updateDriverStatus,
   updateRestaurantStatus,
   updateDriverPayment,
@@ -28,11 +32,15 @@ router.get('/dashboard', getDashboardStats);
 
 // Driver routes
 router.get('/drivers', getAllDrivers);
+router.get('/drivers/detailed', getAllDriversDetailed);
+router.get('/drivers/:id', getDriverById);
 router.put('/drivers/:id/status', updateDriverStatus);
 router.put('/drivers/:id/payment', updateDriverPayment);
 
 // Restaurant routes
 router.get('/restaurants', getAllRestaurants);
+router.get('/restaurants/detailed', getAllRestaurantsDetailed);
+router.get('/restaurants/:id', getRestaurantById);
 router.put('/restaurants/:id/status', updateRestaurantStatus);
 router.put('/restaurants/:id/payment', updateRestaurantPayment);
 
@@ -41,7 +49,7 @@ router.get('/export', exportData);
 router.get('/me', protect, async (req, res) => {
   try {
     console.log('🔐 req.admin:', req.admin);
-    const admin = await Admin.findById(req.admin.id);
+    const admin = await Admin.findByPk(req.admin.id);
     res.status(200).json({
       success: true,
       data: admin

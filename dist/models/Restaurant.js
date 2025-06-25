@@ -12,6 +12,7 @@ module.exports = sequelize => {
       return await bcrypt.compare(candidatePassword, this.password);
     }
   }
+
   Restaurant.init({
     id: {
       type: DataTypes.UUID,
@@ -235,7 +236,7 @@ module.exports = sequelize => {
       defaultValue: 'Pending',
       allowNull: false
     },
-    amount: {
+    paymentAmount: {
       type: DataTypes.DECIMAL(10, 2),
       defaultValue: 0.00,
       allowNull: false

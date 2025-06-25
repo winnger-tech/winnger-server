@@ -1,6 +1,7 @@
+const dotenv = require('dotenv');
+dotenv.config();
 const express = require('express');
 const cors = require('cors');
-const dotenv = require('dotenv');
 const helmet = require('helmet');
 const {
   connectDB
@@ -13,7 +14,8 @@ const driverRoutes = require('./routes/driverRoutes');
 const restaurantRoutes = require('./routes/restaurantRoutes');
 
 // Load env vars
-dotenv.config();
+//dotenv.config();
+
 const app = express();
 
 // Define allowed origins

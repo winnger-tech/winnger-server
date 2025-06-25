@@ -60,9 +60,34 @@ exports.getAllDrivers = async (req, res) => {
     if (req.query.startDate && req.query.endDate) {
       where.createdAt = { [Op.between]: [new Date(req.query.startDate), new Date(req.query.endDate)] };
     }
+    if (req.query.search) {
+      where[Op.or] = [
+        { firstName: { [Op.iLike]: `%${req.query.search}%` } },
+        { lastName: { [Op.iLike]: `%${req.query.search}%` } },
+        { email: { [Op.iLike]: `%${req.query.search}%` } },
+        { cellNumber: { [Op.iLike]: `%${req.query.search}%` } }
+      ];
+    }
+    
     const total = await Driver.count({ where });
-    const drivers = await Driver.findAll({ where, attributes: { exclude: ['password'] }, limit, offset, order: [['createdAt', 'DESC']] });
-    res.status(200).json({ success: true, total, count: drivers.length, totalPages: Math.ceil(total / limit), currentPage: page, data: drivers });
+    const drivers = await Driver.findAll({ 
+      where, 
+      attributes: { 
+        exclude: ['password'] 
+      }, 
+      limit, 
+      offset, 
+      order: [['createdAt', 'DESC']] 
+    });
+    
+    res.status(200).json({ 
+      success: true, 
+      total, 
+      count: drivers.length, 
+      totalPages: Math.ceil(total / limit), 
+      currentPage: page, 
+      data: drivers 
+    });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -79,9 +104,138 @@ exports.getAllRestaurants = async (req, res) => {
     if (req.query.startDate && req.query.endDate) {
       where.createdAt = { [Op.between]: [new Date(req.query.startDate), new Date(req.query.endDate)] };
     }
+    if (req.query.search) {
+      where[Op.or] = [
+        { restaurantName: { [Op.iLike]: `%${req.query.search}%` } },
+        { ownerName: { [Op.iLike]: `%${req.query.search}%` } },
+        { email: { [Op.iLike]: `%${req.query.search}%` } },
+        { phone: { [Op.iLike]: `%${req.query.search}%` } }
+      ];
+    }
+    
     const total = await Restaurant.count({ where });
-    const restaurants = await Restaurant.findAll({ where, attributes: { exclude: ['password'] }, limit, offset, order: [['createdAt', 'DESC']] });
-    res.status(200).json({ success: true, total, count: restaurants.length, totalPages: Math.ceil(total / limit), currentPage: page, data: restaurants });
+    const restaurants = await Restaurant.findAll({ 
+      where, 
+      attributes: { 
+        exclude: ['password'] 
+      }, 
+      limit, 
+      offset, 
+      order: [['createdAt', 'DESC']] 
+    });
+    
+    res.status(200).json({ 
+      success: true, 
+      total, 
+      count: restaurants.length, 
+      totalPages: Math.ceil(total / limit), 
+      currentPage: page, 
+      data: restaurants 
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// Get detailed driver information by ID
+exports.getDriverById = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const driver = await Driver.findByPk(id, {
+      attributes: { exclude: ['password'] }
+    });
+    
+    if (!driver) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'Driver not found' 
+      });
+    }
+    
+    res.status(200).json({ 
+      success: true, 
+      data: driver 
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// Get detailed restaurant information by ID
+exports.getRestaurantById = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const restaurant = await Restaurant.findByPk(id, {
+      attributes: { exclude: ['password'] }
+    });
+    
+    if (!restaurant) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'Restaurant not found' 
+      });
+    }
+    
+    res.status(200).json({ 
+      success: true, 
+      data: restaurant 
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// Get all drivers with detailed information (no pagination for admin dashboard)
+exports.getAllDriversDetailed = async (req, res) => {
+  try {
+    const where = {};
+    if (req.query.status) where.status = req.query.status;
+    if (req.query.paymentStatus) where.paymentStatus = req.query.paymentStatus;
+    if (req.query.startDate && req.query.endDate) {
+      where.createdAt = { [Op.between]: [new Date(req.query.startDate), new Date(req.query.endDate)] };
+    }
+    
+    const drivers = await Driver.findAll({ 
+      where, 
+      attributes: { 
+        exclude: ['password'] 
+      }, 
+      order: [['createdAt', 'DESC']] 
+    });
+    
+    res.status(200).json({ 
+      success: true, 
+      count: drivers.length, 
+      data: drivers 
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// Get all restaurants with detailed information (no pagination for admin dashboard)
+exports.getAllRestaurantsDetailed = async (req, res) => {
+  try {
+    const where = {};
+    if (req.query.status) where.status = req.query.status;
+    if (req.query.paymentStatus) where.paymentStatus = req.query.paymentStatus;
+    if (req.query.startDate && req.query.endDate) {
+      where.createdAt = { [Op.between]: [new Date(req.query.startDate), new Date(req.query.endDate)] };
+    }
+    
+    const restaurants = await Restaurant.findAll({ 
+      where, 
+      attributes: { 
+        exclude: ['password'] 
+      }, 
+      order: [['createdAt', 'DESC']] 
+    });
+    
+    res.status(200).json({ 
+      success: true, 
+      count: restaurants.length, 
+      data: restaurants 
+    });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }

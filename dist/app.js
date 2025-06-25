@@ -1,8 +1,9 @@
 const express = require('express');
 const cors = require('cors');
 const morgan = require('morgan');
-const adminRoutes = require('./routes/admin');
+const adminRoutes = require('./routes/adminRoutes');
 const driverRoutes = require('./routes/driverRoutes');
+const restaurantRoutes = require('./routes/restaurantRoutes');
 const app = express();
 
 // Middleware
@@ -38,6 +39,7 @@ if (process.env.NODE_ENV === 'development') {
 // Mount routes
 app.use('/api/admin', adminRoutes);
 app.use('/api/drivers', driverRoutes);
+app.use('/api/restaurants', restaurantRoutes);
 
 // Error handling middleware
 app.use((err, req, res, next) => {

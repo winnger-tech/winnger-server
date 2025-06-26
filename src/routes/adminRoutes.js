@@ -1,6 +1,11 @@
 const express = require('express');
 const router = express.Router();
 const { protect, authorize } = require('../middleware/auth');
+const { 
+  validateStatusUpdate, 
+  validatePaymentUpdate, 
+  validateBulkUpdate 
+} = require('../middleware/validation');
 const {
   login,
   register,
@@ -15,6 +20,10 @@ const {
   updateRestaurantStatus,
   updateDriverPayment,
   updateRestaurantPayment,
+  bulkUpdateDriverStatus,
+  bulkUpdateRestaurantStatus,
+  bulkUpdateDriverPayment,
+  bulkUpdateRestaurantPayment,
   exportData
 } = require('../controllers/adminController');
 const { Admin } = require('../models');
@@ -34,15 +43,19 @@ router.get('/dashboard', getDashboardStats);
 router.get('/drivers', getAllDrivers);
 router.get('/drivers/detailed', getAllDriversDetailed);
 router.get('/drivers/:id', getDriverById);
-router.put('/drivers/:id/status', updateDriverStatus);
-router.put('/drivers/:id/payment', updateDriverPayment);
+router.put('/drivers/:id/status', validateStatusUpdate, updateDriverStatus);
+router.put('/drivers/:id/payment', validatePaymentUpdate, updateDriverPayment);
+router.put('/drivers/bulk/status', validateBulkUpdate, bulkUpdateDriverStatus);
+router.put('/drivers/bulk/payment', validateBulkUpdate, bulkUpdateDriverPayment);
 
 // Restaurant routes
 router.get('/restaurants', getAllRestaurants);
 router.get('/restaurants/detailed', getAllRestaurantsDetailed);
 router.get('/restaurants/:id', getRestaurantById);
-router.put('/restaurants/:id/status', updateRestaurantStatus);
-router.put('/restaurants/:id/payment', updateRestaurantPayment);
+router.put('/restaurants/:id/status', validateStatusUpdate, updateRestaurantStatus);
+router.put('/restaurants/:id/payment', validatePaymentUpdate, updateRestaurantPayment);
+router.put('/restaurants/bulk/status', validateBulkUpdate, bulkUpdateRestaurantStatus);
+router.put('/restaurants/bulk/payment', validateBulkUpdate, bulkUpdateRestaurantPayment);
 
 // Export routes
 router.get('/export', exportData);

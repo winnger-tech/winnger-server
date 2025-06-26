@@ -51,6 +51,7 @@ class DriverStagedController extends BaseController {
 
       this.successResponse(res, {
         message: 'Driver registered successfully',
+        type: 'driver',
         driver: {
           id: driver.id,
           firstName: driver.firstName,
@@ -98,6 +99,7 @@ class DriverStagedController extends BaseController {
 
       this.successResponse(res, {
         message: 'Login successful',
+        type: 'driver',
         driver: {
           id: driver.id,
           firstName: driver.firstName,

@@ -50,6 +50,7 @@ class RestaurantStagedController extends BaseController {
 
       this.successResponse(res, {
         message: 'Restaurant registered successfully',
+        type: 'restaurant',
         restaurant: {
           id: restaurant.id,
           ownerName: restaurant.ownerName,
@@ -96,6 +97,7 @@ class RestaurantStagedController extends BaseController {
 
       this.successResponse(res, {
         message: 'Login successful',
+        type: 'restaurant',
         restaurant: {
           id: restaurant.id,
           ownerName: restaurant.ownerName,

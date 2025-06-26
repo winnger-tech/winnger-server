@@ -30,6 +30,7 @@ http://localhost:3000/api/admin
   ```json
   {
     "success": true,
+    "type": "admin",
     "token": "jwt-token-here",
     "data": {
       "id": "uuid",
@@ -57,6 +58,7 @@ http://localhost:3000/api/admin
   ```json
   {
     "success": true,
+    "type": "admin",
     "token": "jwt-token-here",
     "data": {
       "id": "uuid",
@@ -78,18 +80,18 @@ http://localhost:3000/api/admin
     "success": true,
     "data": {
       "drivers": {
-        "total": 100,
-        "pending": 20,
-        "approved": 70,
-        "rejected": 10,
-        "paymentCompleted": 60
+        "total": 150,
+        "pending": 25,
+        "approved": 100,
+        "rejected": 15,
+        "paymentCompleted": 80
       },
       "restaurants": {
-        "total": 50,
+        "total": 75,
         "pending": 10,
-        "approved": 35,
+        "approved": 50,
         "rejected": 5,
-        "paymentCompleted": 30
+        "paymentCompleted": 40
       }
     }
   }
@@ -105,16 +107,16 @@ http://localhost:3000/api/admin
   - `limit` (optional): Items per page (default: 10)
   - `status` (optional): Filter by status (pending, approved, rejected)
   - `paymentStatus` (optional): Filter by payment status (pending, completed, failed)
+  - `search` (optional): Search in name, email, or phone
   - `startDate` (optional): Filter by start date
   - `endDate` (optional): Filter by end date
-  - `search` (optional): Search in name, email, or phone
 - **Response**:
   ```json
   {
     "success": true,
-    "total": 100,
+    "total": 150,
     "count": 10,
-    "totalPages": 10,
+    "totalPages": 15,
     "currentPage": 1,
     "data": [
       {
@@ -146,7 +148,7 @@ http://localhost:3000/api/admin
   ```json
   {
     "success": true,
-    "count": 100,
+    "count": 150,
     "data": [
       {
         "id": "uuid",
@@ -287,16 +289,14 @@ http://localhost:3000/api/admin
   - `limit` (optional): Items per page (default: 10)
   - `status` (optional): Filter by status (pending, approved, rejected)
   - `paymentStatus` (optional): Filter by payment status (pending, completed, failed)
-  - `startDate` (optional): Filter by start date
-  - `endDate` (optional): Filter by end date
   - `search` (optional): Search in restaurant name, owner name, email, or phone
 - **Response**:
   ```json
   {
     "success": true,
-    "total": 50,
+    "total": 75,
     "count": 10,
-    "totalPages": 5,
+    "totalPages": 7,
     "currentPage": 1,
     "data": [
       {
@@ -329,7 +329,7 @@ http://localhost:3000/api/admin
   ```json
   {
     "success": true,
-    "count": 50,
+    "count": 75,
     "data": [
       {
         "id": "uuid",

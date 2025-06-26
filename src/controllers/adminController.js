@@ -19,7 +19,18 @@ exports.login = async (req, res) => {
     admin.lastLogin = new Date();
     await admin.save();
     const token = jwt.sign({ id: admin.id, role: admin.role }, process.env.JWT_SECRET, { expiresIn: '24h' });
-    res.status(200).json({ success: true, token, data: { id: admin.id, name: admin.name, email: admin.email, role: admin.role, lastLogin: admin.lastLogin } });
+    res.status(200).json({ 
+      success: true, 
+      type: 'admin',
+      token, 
+      data: { 
+        id: admin.id, 
+        name: admin.name, 
+        email: admin.email, 
+        role: admin.role, 
+        lastLogin: admin.lastLogin 
+      } 
+    });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -246,11 +257,31 @@ exports.updateDriverStatus = async (req, res) => {
     const { status, remarks } = req.body;
     const driver = await Driver.findByPk(req.params.id);
     if (!driver) return res.status(404).json({ success: false, message: 'Driver not found' });
+    
+    const previousStatus = driver.status;
     driver.status = status;
     if (remarks) driver.remarks = remarks;
     await driver.save();
-    await sendEmail({ email: driver.email, subject: `Status Update: ${status.toUpperCase()}`, message: `Your status is now: ${status.toUpperCase()}. ${remarks || ''}` });
-    res.status(200).json({ success: true, data: driver });
+    
+    await sendEmail({ 
+      email: driver.email, 
+      subject: `Status Update: ${status.toUpperCase()}`, 
+      message: `Your status is now: ${status.toUpperCase()}. ${remarks || ''}` 
+    });
+    
+    res.status(200).json({ 
+      success: true, 
+      message: `Driver status updated from ${previousStatus} to ${status}`,
+      data: {
+        id: driver.id,
+        email: driver.email,
+        name: `${driver.firstName || ''} ${driver.lastName || ''}`.trim(),
+        previousStatus,
+        currentStatus: driver.status,
+        remarks: driver.remarks,
+        updatedAt: driver.updatedAt
+      }
+    });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -261,13 +292,33 @@ exports.updateRestaurantStatus = async (req, res) => {
     const { status, remarks } = req.body;
     const restaurant = await Restaurant.findByPk(req.params.id);
     if (!restaurant) return res.status(404).json({ success: false, message: 'Restaurant not found' });
+    
+    const previousStatus = restaurant.status;
     restaurant.status = status;
     if (remarks) {
       restaurant.rejectionReason = remarks;
     }
     await restaurant.save();
-    await sendEmail({ email: restaurant.email, subject: `Status Update: ${status.toUpperCase()}`, message: `Your status is now: ${status.toUpperCase()}. ${remarks || ''}` });
-    res.status(200).json({ success: true, data: restaurant });
+    
+    await sendEmail({ 
+      email: restaurant.email, 
+      subject: `Status Update: ${status.toUpperCase()}`, 
+      message: `Your status is now: ${status.toUpperCase()}. ${remarks || ''}` 
+    });
+    
+    res.status(200).json({ 
+      success: true, 
+      message: `Restaurant status updated from ${previousStatus} to ${status}`,
+      data: {
+        id: restaurant.id,
+        email: restaurant.email,
+        name: restaurant.restaurantName || restaurant.ownerName,
+        previousStatus,
+        currentStatus: restaurant.status,
+        rejectionReason: restaurant.rejectionReason,
+        updatedAt: restaurant.updatedAt
+      }
+    });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -432,6 +483,7 @@ exports.register = async (req, res) => {
 
     res.status(201).json({
       success: true,
+      type: 'admin',
       token,
       data: {
         id: admin.id,
@@ -445,5 +497,234 @@ exports.register = async (req, res) => {
       success: false,
       message: error.message
     });
+  }
+};
+
+// Bulk update driver statuses
+exports.bulkUpdateDriverStatus = async (req, res) => {
+  try {
+    const { driverIds, status, remarks } = req.body;
+    
+    if (!driverIds || !Array.isArray(driverIds) || driverIds.length === 0) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Please provide an array of driver IDs' 
+      });
+    }
+    
+    if (!status || !['pending', 'approved', 'rejected'].includes(status)) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Please provide a valid status' 
+      });
+    }
+
+    const drivers = await Driver.findAll({ where: { id: driverIds } });
+    
+    if (drivers.length !== driverIds.length) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Some driver IDs were not found' 
+      });
+    }
+
+    const updatePromises = drivers.map(async (driver) => {
+      driver.status = status;
+      if (remarks) driver.remarks = remarks;
+      await driver.save();
+      
+      // Send email notification
+      await sendEmail({ 
+        email: driver.email, 
+        subject: `Status Update: ${status.toUpperCase()}`, 
+        message: `Your status has been updated to: ${status.toUpperCase()}. ${remarks || ''}` 
+      });
+      
+      return driver;
+    });
+
+    const updatedDrivers = await Promise.all(updatePromises);
+
+    res.status(200).json({ 
+      success: true, 
+      message: `Successfully updated ${updatedDrivers.length} drivers`,
+      data: updatedDrivers 
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// Bulk update restaurant statuses
+exports.bulkUpdateRestaurantStatus = async (req, res) => {
+  try {
+    const { restaurantIds, status, remarks } = req.body;
+    
+    if (!restaurantIds || !Array.isArray(restaurantIds) || restaurantIds.length === 0) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Please provide an array of restaurant IDs' 
+      });
+    }
+    
+    if (!status || !['pending', 'approved', 'rejected'].includes(status)) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Please provide a valid status' 
+      });
+    }
+
+    const restaurants = await Restaurant.findAll({ where: { id: restaurantIds } });
+    
+    if (restaurants.length !== restaurantIds.length) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Some restaurant IDs were not found' 
+      });
+    }
+
+    const updatePromises = restaurants.map(async (restaurant) => {
+      restaurant.status = status;
+      if (remarks) restaurant.rejectionReason = remarks;
+      await restaurant.save();
+      
+      // Send email notification
+      await sendEmail({ 
+        email: restaurant.email, 
+        subject: `Status Update: ${status.toUpperCase()}`, 
+        message: `Your status has been updated to: ${status.toUpperCase()}. ${remarks || ''}` 
+      });
+      
+      return restaurant;
+    });
+
+    const updatedRestaurants = await Promise.all(updatePromises);
+
+    res.status(200).json({ 
+      success: true, 
+      message: `Successfully updated ${updatedRestaurants.length} restaurants`,
+      data: updatedRestaurants 
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// Bulk update payment statuses
+exports.bulkUpdateDriverPayment = async (req, res) => {
+  try {
+    const { driverIds, action } = req.body;
+    
+    if (!driverIds || !Array.isArray(driverIds) || driverIds.length === 0) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Please provide an array of driver IDs' 
+      });
+    }
+    
+    if (!action || !['approve', 'reject', 'retry'].includes(action)) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Please provide a valid action' 
+      });
+    }
+
+    let paymentStatus;
+    switch (action) {
+      case 'approve': paymentStatus = 'completed'; break;
+      case 'reject': paymentStatus = 'failed'; break;
+      case 'retry': paymentStatus = 'pending'; break;
+    }
+
+    const drivers = await Driver.findAll({ where: { id: driverIds } });
+    
+    if (drivers.length !== driverIds.length) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Some driver IDs were not found' 
+      });
+    }
+
+    const updatePromises = drivers.map(async (driver) => {
+      await driver.update({ paymentStatus });
+      
+      // Send email notification
+      await sendEmail({ 
+        email: driver.email, 
+        subject: `Payment Status Update: ${paymentStatus.toUpperCase()}`, 
+        message: `Your payment status has been updated to: ${paymentStatus.toUpperCase()}` 
+      });
+      
+      return { id: driver.id, paymentStatus };
+    });
+
+    const updatedDrivers = await Promise.all(updatePromises);
+
+    res.status(200).json({ 
+      success: true, 
+      message: `Successfully updated payment status for ${updatedDrivers.length} drivers`,
+      data: updatedDrivers 
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+exports.bulkUpdateRestaurantPayment = async (req, res) => {
+  try {
+    const { restaurantIds, action } = req.body;
+    
+    if (!restaurantIds || !Array.isArray(restaurantIds) || restaurantIds.length === 0) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Please provide an array of restaurant IDs' 
+      });
+    }
+    
+    if (!action || !['approve', 'reject', 'retry'].includes(action)) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Please provide a valid action' 
+      });
+    }
+
+    let paymentStatus;
+    switch (action) {
+      case 'approve': paymentStatus = 'completed'; break;
+      case 'reject': paymentStatus = 'failed'; break;
+      case 'retry': paymentStatus = 'pending'; break;
+    }
+
+    const restaurants = await Restaurant.findAll({ where: { id: restaurantIds } });
+    
+    if (restaurants.length !== restaurantIds.length) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Some restaurant IDs were not found' 
+      });
+    }
+
+    const updatePromises = restaurants.map(async (restaurant) => {
+      await restaurant.update({ paymentStatus });
+      
+      // Send email notification
+      await sendEmail({ 
+        email: restaurant.email, 
+        subject: `Payment Status Update: ${paymentStatus.toUpperCase()}`, 
+        message: `Your payment status has been updated to: ${paymentStatus.toUpperCase()}` 
+      });
+      
+      return { id: restaurant.id, paymentStatus };
+    });
+
+    const updatedRestaurants = await Promise.all(updatePromises);
+
+    res.status(200).json({ 
+      success: true, 
+      message: `Successfully updated payment status for ${updatedRestaurants.length} restaurants`,
+      data: updatedRestaurants 
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
   }
 };

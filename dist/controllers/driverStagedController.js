@@ -1,8 +1,9 @@
 const BaseController = require('./BaseController');
-const { Driver } = require('../models');
+const {
+  Driver
+} = require('../models');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
-
 class DriverStagedController extends BaseController {
   constructor() {
     super();
@@ -19,7 +20,12 @@ class DriverStagedController extends BaseController {
   // Stage 1: Initial registration with basic info only
   async register(req, res) {
     try {
-      const { firstName, lastName, email, password } = req.body;
+      const {
+        firstName,
+        lastName,
+        email,
+        password
+      } = req.body;
 
       // Validate required fields
       if (!firstName || !lastName || !email || !password) {
@@ -27,7 +33,11 @@ class DriverStagedController extends BaseController {
       }
 
       // Check if driver already exists
-      const existingDriver = await Driver.findOne({ where: { email } });
+      const existingDriver = await Driver.findOne({
+        where: {
+          email
+        }
+      });
       if (existingDriver) {
         return this.errorResponse(res, 'Driver with this email already exists', 400);
       }
@@ -43,12 +53,13 @@ class DriverStagedController extends BaseController {
       });
 
       // Generate JWT token
-      const token = jwt.sign(
-        { id: driver.id, email: driver.email, type: 'driver' },
-        process.env.JWT_SECRET,
-        { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
-      );
-
+      const token = jwt.sign({
+        id: driver.id,
+        email: driver.email,
+        type: 'driver'
+      }, process.env.JWT_SECRET, {
+        expiresIn: process.env.JWT_EXPIRES_IN || '7d'
+      });
       this.successResponse(res, {
         message: 'Driver registered successfully',
         type: 'driver',
@@ -62,7 +73,6 @@ class DriverStagedController extends BaseController {
         },
         token
       }, 201);
-
     } catch (error) {
       console.error('Driver registration error:', error);
       this.errorResponse(res, error.message, 500);
@@ -72,14 +82,20 @@ class DriverStagedController extends BaseController {
   // Login
   async login(req, res) {
     try {
-      const { email, password } = req.body;
-
+      const {
+        email,
+        password
+      } = req.body;
       if (!email || !password) {
         return this.errorResponse(res, 'Email and password are required', 400);
       }
 
       // Find driver
-      const driver = await Driver.findOne({ where: { email } });
+      const driver = await Driver.findOne({
+        where: {
+          email
+        }
+      });
       if (!driver) {
         return this.errorResponse(res, 'Invalid credentials', 401);
       }
@@ -91,11 +107,13 @@ class DriverStagedController extends BaseController {
       }
 
       // Generate JWT token
-      const token = jwt.sign(
-        { id: driver.id, email: driver.email, type: 'driver' },
-        process.env.JWT_SECRET,
-        { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
-      );
+      const token = jwt.sign({
+        id: driver.id,
+        email: driver.email,
+        type: 'driver'
+      }, process.env.JWT_SECRET, {
+        expiresIn: process.env.JWT_EXPIRES_IN || '7d'
+      });
 
       // Generate a human-readable stage message
       let stageMessage = '';
@@ -109,7 +127,6 @@ class DriverStagedController extends BaseController {
           stageMessage = `You are currently on Stage ${driver.registrationStage}. Please complete this stage to continue.`;
         }
       }
-
       this.successResponse(res, {
         message: 'Login successful',
         type: 'driver',
@@ -124,7 +141,6 @@ class DriverStagedController extends BaseController {
         stageMessage,
         token
       });
-
     } catch (error) {
       console.error('Driver login error:', error);
       this.errorResponse(res, error.message, 500);
@@ -135,18 +151,17 @@ class DriverStagedController extends BaseController {
   async getProfile(req, res) {
     try {
       const driver = await Driver.findByPk(req.user.id, {
-        attributes: { exclude: ['password'] }
+        attributes: {
+          exclude: ['password']
+        }
       });
-
       if (!driver) {
         return this.errorResponse(res, 'Driver not found', 404);
       }
-
       this.successResponse(res, {
         driver,
         nextStage: this.getNextStageInfo(driver.registrationStage, driver)
       });
-
     } catch (error) {
       console.error('Get profile error:', error);
       this.errorResponse(res, error.message, 500);
@@ -160,10 +175,8 @@ class DriverStagedController extends BaseController {
       if (!driver) {
         return this.errorResponse(res, 'Driver not found', 404);
       }
-
       const currentStage = driver.registrationStage;
       const updateData = req.body;
-
       let nextStage = currentStage;
       let isComplete = false;
 
@@ -171,37 +184,33 @@ class DriverStagedController extends BaseController {
       if (currentStage === 1) {
         const requiredFields = ['dateOfBirth', 'cellNumber', 'streetNameNumber', 'city', 'province', 'postalCode'];
         const hasAllFields = requiredFields.every(field => updateData[field]);
-        
         if (hasAllFields) {
           nextStage = 2;
         }
       }
-      
+
       // Stage 3: Vehicle information
       else if (currentStage === 2) {
         const requiredFields = ['vehicleType', 'vehicleMake', 'vehicleModel', 'deliveryType', 'yearOfManufacture', 'vehicleColor', 'vehicleLicensePlate', 'driversLicenseClass'];
         const hasAllFields = requiredFields.every(field => updateData[field]);
-        
         if (hasAllFields) {
           nextStage = 3;
         }
       }
-      
+
       // Stage 4: Documents
       else if (currentStage === 3) {
         const requiredFields = ['driversLicenseFrontUrl', 'driversLicenseBackUrl', 'vehicleRegistrationUrl', 'vehicleInsuranceUrl', 'drivingAbstractUrl', 'drivingAbstractDate', 'workEligibilityUrl', 'workEligibilityType', 'sinNumber'];
         const hasAllFields = requiredFields.every(field => updateData[field]);
-        
         if (hasAllFields) {
           nextStage = 4;
         }
       }
-      
+
       // Stage 5: Banking and consent
       else if (currentStage === 4) {
         const requiredFields = ['bankingInfo', 'consentAndDeclarations'];
         const hasAllFields = requiredFields.every(field => updateData[field]);
-        
         if (hasAllFields) {
           nextStage = 5;
           isComplete = true;
@@ -217,15 +226,15 @@ class DriverStagedController extends BaseController {
 
       // Fetch updated driver
       const updatedDriver = await Driver.findByPk(req.user.id, {
-        attributes: { exclude: ['password'] }
+        attributes: {
+          exclude: ['password']
+        }
       });
-
       this.successResponse(res, {
         message: `Stage ${currentStage} completed successfully`,
         driver: updatedDriver,
         nextStage: isComplete ? null : this.getNextStageInfo(nextStage, updatedDriver)
       });
-
     } catch (error) {
       console.error('Update stage error:', error);
       this.errorResponse(res, error.message, 500);
@@ -248,7 +257,7 @@ class DriverStagedController extends BaseController {
           fields: ["dateOfBirth", "cellNumber", "streetNameNumber", "appUniteNumber", "city", "province", "postalCode"]
         },
         3: {
-          title: "Vehicle Information", 
+          title: "Vehicle Information",
           description: "Tell us about your vehicle and delivery preferences",
           fields: ["vehicleType", "vehicleMake", "vehicleModel", "deliveryType", "yearOfManufacture", "vehicleColor", "vehicleLicensePlate", "driversLicenseClass"]
         },
@@ -263,9 +272,9 @@ class DriverStagedController extends BaseController {
           fields: ["bankingInfo", "consentAndDeclarations"]
         }
       };
-
-      this.successResponse(res, { stages });
-
+      this.successResponse(res, {
+        stages
+      });
     } catch (error) {
       console.error('Get stages error:', error);
       this.errorResponse(res, error.message, 500);
@@ -283,7 +292,7 @@ class DriverStagedController extends BaseController {
       },
       3: {
         title: "Vehicle Information",
-        description: "Tell us about your vehicle and delivery preferences", 
+        description: "Tell us about your vehicle and delivery preferences",
         requiredFields: ["vehicleType", "vehicleMake", "vehicleModel", "deliveryType", "yearOfManufacture", "vehicleColor", "vehicleLicensePlate", "driversLicenseClass"]
       },
       4: {
@@ -298,7 +307,6 @@ class DriverStagedController extends BaseController {
         requiredFields: ["bankingInfo", "consentAndDeclarations"]
       }
     };
-
     return stageInfo[currentStage] || null;
   }
 
@@ -306,9 +314,10 @@ class DriverStagedController extends BaseController {
   async getDashboard(req, res) {
     try {
       const driver = await Driver.findByPk(req.user.id, {
-        attributes: { exclude: ['password'] }
+        attributes: {
+          exclude: ['password']
+        }
       });
-
       if (!driver) {
         return this.errorResponse(res, 'Driver not found', 404);
       }
@@ -319,7 +328,8 @@ class DriverStagedController extends BaseController {
           title: "Basic Information",
           description: "Complete your basic profile information",
           fields: ["firstName", "lastName", "email", "password"],
-          completed: true, // Always completed after registration
+          completed: true,
+          // Always completed after registration
           isCurrentStage: driver.registrationStage === 1
         },
         2: {
@@ -330,7 +340,7 @@ class DriverStagedController extends BaseController {
           isCurrentStage: driver.registrationStage === 2
         },
         3: {
-          title: "Vehicle Information", 
+          title: "Vehicle Information",
           description: "Tell us about your vehicle and delivery preferences",
           fields: ["vehicleType", "vehicleMake", "vehicleModel", "deliveryType", "yearOfManufacture", "vehicleColor", "vehicleLicensePlate", "driversLicenseClass"],
           completed: driver.registrationStage > 2,
@@ -354,7 +364,6 @@ class DriverStagedController extends BaseController {
 
       // Get current stage details
       const currentStageInfo = this.getNextStageInfo(driver.registrationStage, driver);
-
       this.successResponse(res, {
         driver,
         currentStage: driver.registrationStage,
@@ -365,10 +374,9 @@ class DriverStagedController extends BaseController {
           totalStages: 5,
           completedStages: driver.registrationStage - 1,
           currentStage: driver.registrationStage,
-          percentage: Math.round(((driver.registrationStage - 1) / 5) * 100)
+          percentage: Math.round((driver.registrationStage - 1) / 5 * 100)
         }
       });
-
     } catch (error) {
       console.error('Get dashboard error:', error);
       this.errorResponse(res, error.message, 500);
@@ -378,9 +386,11 @@ class DriverStagedController extends BaseController {
   // Update specific stage (allows going back and forth)
   async updateSpecificStage(req, res) {
     try {
-      const { stage, data } = req.body;
+      const {
+        stage,
+        data
+      } = req.body;
       const driver = await Driver.findByPk(req.user.id);
-      
       if (!driver) {
         return this.errorResponse(res, 'Driver not found', 404);
       }
@@ -399,16 +409,16 @@ class DriverStagedController extends BaseController {
 
       // Fetch updated driver
       const updatedDriver = await Driver.findByPk(req.user.id, {
-        attributes: { exclude: ['password'] }
+        attributes: {
+          exclude: ['password']
+        }
       });
-
       this.successResponse(res, {
         message: `Stage ${stage} updated successfully`,
         driver: updatedDriver,
         currentStage: stage,
         isRegistrationComplete: stage === 5
       });
-
     } catch (error) {
       console.error('Update specific stage error:', error);
       this.errorResponse(res, error.message, 500);
@@ -418,18 +428,21 @@ class DriverStagedController extends BaseController {
   // Get specific stage data
   async getStageData(req, res) {
     try {
-      const { stage } = req.params;
+      const {
+        stage
+      } = req.params;
       const driver = await Driver.findByPk(req.user.id, {
-        attributes: { exclude: ['password'] }
+        attributes: {
+          exclude: ['password']
+        }
       });
-
       if (!driver) {
         return this.errorResponse(res, 'Driver not found', 404);
       }
 
       // Get stage-specific fields
       const stageFields = this.getStageFields(parseInt(stage));
-      
+
       // Extract only the fields relevant to this stage
       const stageData = {};
       stageFields.forEach(field => {
@@ -437,13 +450,11 @@ class DriverStagedController extends BaseController {
           stageData[field] = driver[field];
         }
       });
-
       this.successResponse(res, {
         stage: parseInt(stage),
         data: stageData,
         stageInfo: this.getNextStageInfo(parseInt(stage), driver)
       });
-
     } catch (error) {
       console.error('Get stage data error:', error);
       this.errorResponse(res, error.message, 500);
@@ -462,5 +473,4 @@ class DriverStagedController extends BaseController {
     return stageFields[stage] || [];
   }
 }
-
 module.exports = new DriverStagedController();

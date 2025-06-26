@@ -53,5 +53,18 @@ class BaseController {
       data
     });
   }
+  successResponse(res, data = null, statusCode = 200) {
+    res.status(statusCode).json({
+      success: true,
+      data
+    });
+  }
+  errorResponse(res, message = 'Internal server error', statusCode = 500, errors = null) {
+    res.status(statusCode).json({
+      success: false,
+      message,
+      errors
+    });
+  }
 }
 module.exports = BaseController;

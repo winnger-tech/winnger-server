@@ -19,10 +19,7 @@ module.exports = sequelize => {
     email: {
       type: DataTypes.STRING,
       allowNull: false,
-      unique: true,
-      validate: {
-        isEmail: true
-      }
+      unique: true
     },
     profilePhotoUrl: {
       type: DataTypes.STRING,
@@ -34,10 +31,7 @@ module.exports = sequelize => {
     },
     firstName: {
       type: DataTypes.STRING,
-      allowNull: false,
-      validate: {
-        len: [2, 50]
-      }
+      allowNull: false
     },
     middleName: {
       type: DataTypes.STRING,
@@ -45,35 +39,15 @@ module.exports = sequelize => {
     },
     lastName: {
       type: DataTypes.STRING,
-      allowNull: false,
-      validate: {
-        len: [2, 50]
-      }
+      allowNull: false
     },
     dateOfBirth: {
       type: DataTypes.DATE,
-      allowNull: false,
-      validate: {
-        isAdult(value) {
-          const today = new Date();
-          const birthDate = new Date(value);
-          let age = today.getFullYear() - birthDate.getFullYear();
-          const monthDiff = today.getMonth() - birthDate.getMonth();
-          if (monthDiff < 0 || monthDiff === 0 && today.getDate() < birthDate.getDate()) {
-            age--;
-          }
-          if (age < 18) {
-            throw new Error('Must be at least 18 years old');
-          }
-        }
-      }
+      allowNull: false
     },
     cellNumber: {
       type: DataTypes.STRING,
-      allowNull: false,
-      validate: {
-        is: /^\+1-\d{3}-\d{3}-\d{4}$/
-      }
+      allowNull: false
     },
     streetNameNumber: {
       type: DataTypes.STRING,
@@ -89,17 +63,11 @@ module.exports = sequelize => {
     },
     province: {
       type: DataTypes.STRING,
-      allowNull: false,
-      validate: {
-        isIn: [['AB', 'BC', 'MB', 'NB', 'NL', 'NS', 'NT', 'NU', 'ON', 'PE', 'QC', 'SK', 'YT']]
-      }
+      allowNull: false
     },
     postalCode: {
       type: DataTypes.STRING,
-      allowNull: false,
-      validate: {
-        is: /^[A-Za-z]\d[A-Za-z][ -]?\d[A-Za-z]\d$/
-      }
+      allowNull: false
     },
     vehicleType: {
       type: DataTypes.ENUM('Walk', 'Scooter', 'Bike', 'Car', 'Van', 'Other'),
@@ -119,17 +87,7 @@ module.exports = sequelize => {
     },
     yearOfManufacture: {
       type: DataTypes.INTEGER,
-      allowNull: false,
-      validate: {
-        isValidYear(value) {
-          const currentYear = new Date().getFullYear();
-          const vehicleAge = currentYear - value;
-          // Check if delivery type is meals and apply 25 year rule
-          if (this.deliveryType === 'Meals' && vehicleAge > 25) {
-            throw new Error('Vehicle must not be older than 25 years for meals delivery');
-          }
-        }
-      }
+      allowNull: false
     },
     vehicleColor: {
       type: DataTypes.STRING,
@@ -137,27 +95,11 @@ module.exports = sequelize => {
     },
     vehicleLicensePlate: {
       type: DataTypes.STRING,
-      allowNull: false,
-      validate: {
-        is: /^[A-Z0-9\s-]+$/i
-      }
+      allowNull: false
     },
     driversLicenseClass: {
       type: DataTypes.STRING,
-      allowNull: false,
-      validate: {
-        isValidClass(value) {
-          if (this.province === 'ON') {
-            if (!['G', 'G2'].includes(value)) {
-              throw new Error('Ontario drivers must have Class G or G2 license');
-            }
-          } else {
-            if (value !== '5') {
-              throw new Error('Drivers must have Class 5 license');
-            }
-          }
-        }
-      }
+      allowNull: false
     },
     driversLicenseFrontUrl: {
       type: DataTypes.STRING,
@@ -181,16 +123,7 @@ module.exports = sequelize => {
     },
     drivingAbstractDate: {
       type: DataTypes.DATE,
-      allowNull: false,
-      validate: {
-        isWithinThreeMonths(value) {
-          const threeMonthsAgo = new Date();
-          threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
-          if (new Date(value) < threeMonthsAgo) {
-            throw new Error('Driving abstract must be from the last 3 months');
-          }
-        }
-      }
+      allowNull: false
     },
     criminalBackgroundCheckUrl: {
       type: DataTypes.STRING,
@@ -198,18 +131,7 @@ module.exports = sequelize => {
     },
     criminalBackgroundCheckDate: {
       type: DataTypes.DATE,
-      allowNull: true,
-      validate: {
-        isWithinSixMonths(value) {
-          if (value) {
-            const sixMonthsAgo = new Date();
-            sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
-            if (new Date(value) < sixMonthsAgo) {
-              throw new Error('Criminal background check must be from the last 6 months');
-            }
-          }
-        }
-      }
+      allowNull: true
     },
     workEligibilityUrl: {
       type: DataTypes.STRING,
@@ -221,10 +143,7 @@ module.exports = sequelize => {
     },
     sinNumber: {
       type: DataTypes.STRING,
-      allowNull: false,
-      validate: {
-        is: /^\d{9}$/
-      }
+      allowNull: false
     },
     sinCardUrl: {
       type: DataTypes.STRING,
@@ -232,26 +151,7 @@ module.exports = sequelize => {
     },
     bankingInfo: {
       type: DataTypes.JSONB,
-      allowNull: false,
-      validate: {
-        hasRequiredFields(value) {
-          const required = ['transitNumber', 'institutionNumber', 'accountNumber'];
-          for (const field of required) {
-            if (!value[field]) {
-              throw new Error(`Banking info missing ${field}`);
-            }
-          }
-          if (!/^\d{3}$/.test(value.transitNumber)) {
-            throw new Error('Transit number must be 3 digits');
-          }
-          if (!/^\d{5}$/.test(value.institutionNumber)) {
-            throw new Error('Institution number must be 5 digits');
-          }
-          if (!/^\d{7,12}$/.test(value.accountNumber)) {
-            throw new Error('Account number must be 7-12 digits');
-          }
-        }
-      }
+      allowNull: false
     },
     backgroundCheckStatus: {
       type: DataTypes.ENUM('pending', 'in_progress', 'completed', 'failed'),
@@ -265,12 +165,6 @@ module.exports = sequelize => {
       type: DataTypes.STRING,
       allowNull: true
     },
-    // amount: {
-    //   type: DataTypes.DECIMAL(10, 2),
-    //   defaultValue: 0.00,
-    //   allowNull: true
-
-    // },
     status: {
       type: DataTypes.ENUM('pending', 'approved', 'rejected'),
       defaultValue: 'pending',
@@ -281,11 +175,6 @@ module.exports = sequelize => {
       defaultValue: 'pending',
       allowNull: false
     },
-    // remarks: {
-    //   type: DataTypes.TEXT,
-    //   allowNull: true,
-    //   comment: 'Internal admin notes or rejection reason'
-    // },
     emailVerified: {
       type: DataTypes.BOOLEAN,
       defaultValue: false
@@ -293,17 +182,7 @@ module.exports = sequelize => {
     consentAndDeclarations: {
       type: DataTypes.JSONB,
       allowNull: false,
-      defaultValue: {},
-      validate: {
-        hasRequiredConsent(value) {
-          const required = ['termsAndConditions', 'backgroundScreening', 'privacyPolicy', 'electronicCommunication'];
-          for (const field of required) {
-            if (!value[field]) {
-              throw new Error(`Consent missing for ${field}`);
-            }
-          }
-        }
-      }
+      defaultValue: {}
     }
   }, {
     sequelize,

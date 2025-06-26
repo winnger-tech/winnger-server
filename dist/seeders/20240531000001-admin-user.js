@@ -7,11 +7,11 @@ const {
 module.exports = {
   up: async (queryInterface, Sequelize) => {
     const salt = await bcrypt.genSalt(10);
-    const hashedPassword = await bcrypt.hash('password', salt);
+    const hashedPassword = await bcrypt.hash('admin123', salt);
     await queryInterface.bulkInsert('Admins', [{
       id: uuidv4(),
       name: 'Admin User',
-      email: 'admin@gmail.com',
+      email: 'admin@prlaunch.com',
       password: hashedPassword,
       role: 'super_admin',
       createdAt: new Date(),

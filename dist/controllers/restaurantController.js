@@ -225,7 +225,7 @@ class RestaurantController extends BaseController {
       throw new Error('Missing required document: Void Cheque');
     }
     if (files.businessLicense && files.businessLicense[0]) {
-      documentUrls.businessLicenseUrl = files.businessLicense[0].location;
+      documentUrls.drivingLicenseUrl = files.businessLicense[0].location;
     } else {
       throw new Error('Missing required document: Business License');
     }

@@ -12,7 +12,6 @@ module.exports = sequelize => {
       return await bcrypt.compare(candidatePassword, this.password);
     }
   }
-
   Restaurant.init({
     id: {
       type: DataTypes.UUID,
@@ -22,9 +21,9 @@ module.exports = sequelize => {
     // Owner Information
     ownerName: {
       type: DataTypes.STRING,
-      allowNull: false,
+      allowNull: true,
+      // Allow null for initial registration
       validate: {
-        notEmpty: true,
         len: [2, 100]
       }
     },
@@ -42,10 +41,11 @@ module.exports = sequelize => {
     },
     phone: {
       type: DataTypes.STRING,
-      allowNull: false,
+      allowNull: true,
+      // Allow null for initial registration
       validate: {
         isValidPhone(value) {
-          if (!/^\+?1?\d{10,14}$/.test(value.replace(/[\s\-\(\)]/g, ''))) {
+          if (value && !/^\+?1?\d{10,14}$/.test(value.replace(/[\s\-\(\)]/g, ''))) {
             throw new Error('Invalid phone number format');
           }
         }
@@ -53,15 +53,12 @@ module.exports = sequelize => {
     },
     identificationType: {
       type: DataTypes.ENUM('licence', 'pr_card', 'passport', 'medical_card', 'provincial_id'),
-      allowNull: false
+      allowNull: true // Allow null for initial registration
     },
     // Business Information
     restaurantName: {
       type: DataTypes.STRING,
-      allowNull: false,
-      validate: {
-        notEmpty: true
-      }
+      allowNull: true // Allow null for initial registration
     },
     // businessEmail: {
     //   type: DataTypes.STRING,
@@ -83,19 +80,20 @@ module.exports = sequelize => {
     // },
     businessAddress: {
       type: DataTypes.STRING,
-      allowNull: false
+      allowNull: true // Allow null for initial registration
     },
     city: {
       type: DataTypes.STRING,
-      allowNull: false
+      allowNull: true // Allow null for initial registration
     },
     province: {
       type: DataTypes.ENUM('AB', 'BC', 'MB', 'NB', 'NL', 'NS', 'NT', 'NU', 'ON', 'PE', 'QC', 'SK', 'YT'),
-      allowNull: false
+      allowNull: true // Allow null for initial registration
     },
     postalCode: {
       type: DataTypes.STRING,
-      allowNull: false,
+      allowNull: true,
+      // Allow null for initial registration
       validate: {
         is: /^[A-Za-z]\d[A-Za-z][ -]?\d[A-Za-z]\d$/
       }
@@ -103,23 +101,27 @@ module.exports = sequelize => {
     // Banking Information
     bankingInfo: {
       type: DataTypes.JSONB,
-      allowNull: false,
+      allowNull: true,
+      // Allow null for initial registration
       validate: {
         hasRequiredFields(value) {
-          const required = ['transitNumber', 'institutionNumber', 'accountNumber'];
-          for (const field of required) {
-            if (!value[field]) {
-              throw new Error(`Banking info missing ${field}`);
+          if (value) {
+            // Only validate if value exists
+            const required = ['transitNumber', 'institutionNumber', 'accountNumber'];
+            for (const field of required) {
+              if (!value[field]) {
+                throw new Error(`Banking info missing ${field}`);
+              }
             }
-          }
-          if (!/^\d{5}$/.test(value.transitNumber)) {
-            throw new Error('Transit number must be 5 digits');
-          }
-          if (!/^\d{3}$/.test(value.institutionNumber)) {
-            throw new Error('Institution number must be 3 digits');
-          }
-          if (!/^\d{7,12}$/.test(value.accountNumber)) {
-            throw new Error('Account number must be 7-12 digits');
+            if (!/^\d{5}$/.test(value.transitNumber)) {
+              throw new Error('Transit number must be 5 digits');
+            }
+            if (!/^\d{3}$/.test(value.institutionNumber)) {
+              throw new Error('Institution number must be 3 digits');
+            }
+            if (!/^\d{7,12}$/.test(value.accountNumber)) {
+              throw new Error('Account number must be 7-12 digits');
+            }
           }
         }
       }
@@ -127,31 +129,35 @@ module.exports = sequelize => {
     // Tax Information - Dynamic based on province
     taxInfo: {
       type: DataTypes.JSONB,
-      allowNull: false,
+      allowNull: true,
+      // Allow null for initial registration
       validate: {
         hasRequiredFieldsForProvince(value) {
-          // Province-based tax validation
-          const provinceTaxMap = {
-            'AB': ['GST'],
-            'BC': ['GST', 'PST'],
-            'MB': ['GST', 'PST'],
-            'NB': ['HST'],
-            'NL': ['HST'],
-            'NS': ['HST'],
-            'NT': ['GST'],
-            'NU': ['GST'],
-            'ON': ['HST'],
-            'PE': ['HST'],
-            'QC': ['GST', 'QST'],
-            'SK': ['GST', 'PST'],
-            'YT': ['GST']
-          };
-          const restaurant = this;
-          const requiredTaxes = provinceTaxMap[restaurant.province] || [];
-          for (const tax of requiredTaxes) {
-            const fieldName = `${tax.toLowerCase()}Number`;
-            if (!value[fieldName]) {
-              throw new Error(`${tax} number is required for province ${restaurant.province}`);
+          if (value && this.province) {
+            // Only validate if both values exist
+            // Province-based tax validation
+            const provinceTaxMap = {
+              'AB': ['GST'],
+              'BC': ['GST', 'PST'],
+              'MB': ['GST', 'PST'],
+              'NB': ['HST'],
+              'NL': ['HST'],
+              'NS': ['HST'],
+              'NT': ['GST'],
+              'NU': ['GST'],
+              'ON': ['HST'],
+              'PE': ['HST'],
+              'QC': ['GST', 'QST'],
+              'SK': ['GST', 'PST'],
+              'YT': ['GST']
+            };
+            const restaurant = this;
+            const requiredTaxes = provinceTaxMap[restaurant.province] || [];
+            for (const tax of requiredTaxes) {
+              const fieldName = `${tax.toLowerCase()}Number`;
+              if (!value[fieldName]) {
+                throw new Error(`${tax} number is required for province ${restaurant.province}`);
+              }
             }
           }
         }
@@ -160,45 +166,37 @@ module.exports = sequelize => {
     // Document URLs
     businessDocumentUrl: {
       type: DataTypes.STRING,
-      allowNull: false,
+      allowNull: true,
+      // Allow null for initial registration
       comment: 'Bank statement or business card PDF'
     },
-    // fssaiCertificateUrl: {
-    //   type: DataTypes.STRING,
-    //   allowNull: false
-    // },
-    // gstCertificateUrl: {
-    //   type: DataTypes.STRING,
-    //   allowNull: false
-    // },
-    // panCardUrl: {
-    //   type: DataTypes.STRING,
-    //   allowNull: false
-    // },
-    businessLicenseUrl: {
+    drivingLicenseUrl: {
       type: DataTypes.STRING,
-      allowNull: false
+      allowNull: true // Allow null for initial registration
     },
     voidChequeUrl: {
       type: DataTypes.STRING,
-      allowNull: false
+      allowNull: true // Allow null for initial registration
     },
     // Menu Details
     menuDetails: {
       type: DataTypes.JSONB,
-      allowNull: false,
+      allowNull: true,
+      // Allow null for initial registration
       defaultValue: [],
       validate: {
         isValidMenuFormat(value) {
-          if (!Array.isArray(value)) {
+          if (value && !Array.isArray(value)) {
             throw new Error('Menu details must be an array');
           }
-          for (const item of value) {
-            if (!item.name || !item.price || item.price <= 0) {
-              throw new Error('Each menu item must have a name and valid price');
-            }
-            if (item.imageUrl && typeof item.imageUrl !== 'string') {
-              throw new Error('Menu item image URL must be a string');
+          if (value) {
+            for (const item of value) {
+              if (!item.name || !item.price || item.price <= 0) {
+                throw new Error('Each menu item must have a name and valid price');
+              }
+              if (item.imageUrl && typeof item.imageUrl !== 'string') {
+                throw new Error('Menu item image URL must be a string');
+              }
             }
           }
         }
@@ -207,7 +205,8 @@ module.exports = sequelize => {
     // Hours of Operation
     hoursOfOperation: {
       type: DataTypes.JSONB,
-      allowNull: false,
+      allowNull: true,
+      // Allow null for initial registration
       defaultValue: [],
       validate: {
         isValidHoursFormat(value) {
@@ -232,8 +231,8 @@ module.exports = sequelize => {
       allowNull: true
     },
     paymentStatus: {
-      type: DataTypes.ENUM('Pending', 'Paid', 'Failed'),
-      defaultValue: 'Pending',
+      type: DataTypes.ENUM('pending', 'completed', 'failed'),
+      defaultValue: 'pending',
       allowNull: false
     },
     paymentAmount: {
@@ -247,13 +246,24 @@ module.exports = sequelize => {
     },
     // Status fields
     status: {
-      type: DataTypes.ENUM('Submitted', 'Paid', 'Verified'),
-      defaultValue: 'Submitted',
+      type: DataTypes.ENUM('pending', 'approved', 'rejected', 'suspended'),
+      defaultValue: 'pending',
       allowNull: false
     },
     emailVerified: {
       type: DataTypes.BOOLEAN,
       defaultValue: false
+    },
+    registrationStage: {
+      type: DataTypes.INTEGER,
+      defaultValue: 1,
+      allowNull: false,
+      comment: 'Stage 1: Basic info, Stage 2: Business details, Stage 3: Documents, Stage 4: Menu & hours, Stage 5: Banking & tax'
+    },
+    isRegistrationComplete: {
+      type: DataTypes.BOOLEAN,
+      defaultValue: false,
+      comment: 'True when all required fields are completed'
     },
     emailVerificationToken: {
       type: DataTypes.STRING,

@@ -46,6 +46,7 @@ exports.login = async (req, res) => {
     });
     res.status(200).json({
       success: true,
+      type: 'admin',
       token,
       data: {
         id: admin.id,
@@ -136,6 +137,25 @@ exports.getAllDrivers = async (req, res) => {
         [Op.between]: [new Date(req.query.startDate), new Date(req.query.endDate)]
       };
     }
+    if (req.query.search) {
+      where[Op.or] = [{
+        firstName: {
+          [Op.iLike]: `%${req.query.search}%`
+        }
+      }, {
+        lastName: {
+          [Op.iLike]: `%${req.query.search}%`
+        }
+      }, {
+        email: {
+          [Op.iLike]: `%${req.query.search}%`
+        }
+      }, {
+        cellNumber: {
+          [Op.iLike]: `%${req.query.search}%`
+        }
+      }];
+    }
     const total = await Driver.count({
       where
     });
@@ -176,6 +196,25 @@ exports.getAllRestaurants = async (req, res) => {
         [Op.between]: [new Date(req.query.startDate), new Date(req.query.endDate)]
       };
     }
+    if (req.query.search) {
+      where[Op.or] = [{
+        restaurantName: {
+          [Op.iLike]: `%${req.query.search}%`
+        }
+      }, {
+        ownerName: {
+          [Op.iLike]: `%${req.query.search}%`
+        }
+      }, {
+        email: {
+          [Op.iLike]: `%${req.query.search}%`
+        }
+      }, {
+        phone: {
+          [Op.iLike]: `%${req.query.search}%`
+        }
+      }];
+    }
     const total = await Restaurant.count({
       where
     });
@@ -203,6 +242,126 @@ exports.getAllRestaurants = async (req, res) => {
     });
   }
 };
+
+// Get detailed driver information by ID
+exports.getDriverById = async (req, res) => {
+  try {
+    const {
+      id
+    } = req.params;
+    const driver = await Driver.findByPk(id, {
+      attributes: {
+        exclude: ['password']
+      }
+    });
+    if (!driver) {
+      return res.status(404).json({
+        success: false,
+        message: 'Driver not found'
+      });
+    }
+    res.status(200).json({
+      success: true,
+      data: driver
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+};
+
+// Get detailed restaurant information by ID
+exports.getRestaurantById = async (req, res) => {
+  try {
+    const {
+      id
+    } = req.params;
+    const restaurant = await Restaurant.findByPk(id, {
+      attributes: {
+        exclude: ['password']
+      }
+    });
+    if (!restaurant) {
+      return res.status(404).json({
+        success: false,
+        message: 'Restaurant not found'
+      });
+    }
+    res.status(200).json({
+      success: true,
+      data: restaurant
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+};
+
+// Get all drivers with detailed information (no pagination for admin dashboard)
+exports.getAllDriversDetailed = async (req, res) => {
+  try {
+    const where = {};
+    if (req.query.status) where.status = req.query.status;
+    if (req.query.paymentStatus) where.paymentStatus = req.query.paymentStatus;
+    if (req.query.startDate && req.query.endDate) {
+      where.createdAt = {
+        [Op.between]: [new Date(req.query.startDate), new Date(req.query.endDate)]
+      };
+    }
+    const drivers = await Driver.findAll({
+      where,
+      attributes: {
+        exclude: ['password']
+      },
+      order: [['createdAt', 'DESC']]
+    });
+    res.status(200).json({
+      success: true,
+      count: drivers.length,
+      data: drivers
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+};
+
+// Get all restaurants with detailed information (no pagination for admin dashboard)
+exports.getAllRestaurantsDetailed = async (req, res) => {
+  try {
+    const where = {};
+    if (req.query.status) where.status = req.query.status;
+    if (req.query.paymentStatus) where.paymentStatus = req.query.paymentStatus;
+    if (req.query.startDate && req.query.endDate) {
+      where.createdAt = {
+        [Op.between]: [new Date(req.query.startDate), new Date(req.query.endDate)]
+      };
+    }
+    const restaurants = await Restaurant.findAll({
+      where,
+      attributes: {
+        exclude: ['password']
+      },
+      order: [['createdAt', 'DESC']]
+    });
+    res.status(200).json({
+      success: true,
+      count: restaurants.length,
+      data: restaurants
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+};
 exports.updateDriverStatus = async (req, res) => {
   try {
     const {
@@ -214,6 +373,7 @@ exports.updateDriverStatus = async (req, res) => {
       success: false,
       message: 'Driver not found'
     });
+    const previousStatus = driver.status;
     driver.status = status;
     if (remarks) driver.remarks = remarks;
     await driver.save();
@@ -224,7 +384,16 @@ exports.updateDriverStatus = async (req, res) => {
     });
     res.status(200).json({
       success: true,
-      data: driver
+      message: `Driver status updated from ${previousStatus} to ${status}`,
+      data: {
+        id: driver.id,
+        email: driver.email,
+        name: `${driver.firstName || ''} ${driver.lastName || ''}`.trim(),
+        previousStatus,
+        currentStatus: driver.status,
+        remarks: driver.remarks,
+        updatedAt: driver.updatedAt
+      }
     });
   } catch (error) {
     res.status(500).json({
@@ -244,6 +413,7 @@ exports.updateRestaurantStatus = async (req, res) => {
       success: false,
       message: 'Restaurant not found'
     });
+    const previousStatus = restaurant.status;
     restaurant.status = status;
     if (remarks) {
       restaurant.rejectionReason = remarks;
@@ -256,7 +426,16 @@ exports.updateRestaurantStatus = async (req, res) => {
     });
     res.status(200).json({
       success: true,
-      data: restaurant
+      message: `Restaurant status updated from ${previousStatus} to ${status}`,
+      data: {
+        id: restaurant.id,
+        email: restaurant.email,
+        name: restaurant.restaurantName || restaurant.ownerName,
+        previousStatus,
+        currentStatus: restaurant.status,
+        rejectionReason: restaurant.rejectionReason,
+        updatedAt: restaurant.updatedAt
+      }
     });
   } catch (error) {
     res.status(500).json({
@@ -494,6 +673,7 @@ exports.register = async (req, res) => {
     });
     res.status(201).json({
       success: true,
+      type: 'admin',
       token,
       data: {
         id: admin.id,
@@ -501,6 +681,264 @@ exports.register = async (req, res) => {
         email: admin.email,
         role: admin.role
       }
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+};
+
+// Bulk update driver statuses
+exports.bulkUpdateDriverStatus = async (req, res) => {
+  try {
+    const {
+      driverIds,
+      status,
+      remarks
+    } = req.body;
+    if (!driverIds || !Array.isArray(driverIds) || driverIds.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Please provide an array of driver IDs'
+      });
+    }
+    if (!status || !['pending', 'approved', 'rejected'].includes(status)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Please provide a valid status'
+      });
+    }
+    const drivers = await Driver.findAll({
+      where: {
+        id: driverIds
+      }
+    });
+    if (drivers.length !== driverIds.length) {
+      return res.status(400).json({
+        success: false,
+        message: 'Some driver IDs were not found'
+      });
+    }
+    const updatePromises = drivers.map(async driver => {
+      driver.status = status;
+      if (remarks) driver.remarks = remarks;
+      await driver.save();
+
+      // Send email notification
+      await sendEmail({
+        email: driver.email,
+        subject: `Status Update: ${status.toUpperCase()}`,
+        message: `Your status has been updated to: ${status.toUpperCase()}. ${remarks || ''}`
+      });
+      return driver;
+    });
+    const updatedDrivers = await Promise.all(updatePromises);
+    res.status(200).json({
+      success: true,
+      message: `Successfully updated ${updatedDrivers.length} drivers`,
+      data: updatedDrivers
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+};
+
+// Bulk update restaurant statuses
+exports.bulkUpdateRestaurantStatus = async (req, res) => {
+  try {
+    const {
+      restaurantIds,
+      status,
+      remarks
+    } = req.body;
+    if (!restaurantIds || !Array.isArray(restaurantIds) || restaurantIds.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Please provide an array of restaurant IDs'
+      });
+    }
+    if (!status || !['pending', 'approved', 'rejected'].includes(status)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Please provide a valid status'
+      });
+    }
+    const restaurants = await Restaurant.findAll({
+      where: {
+        id: restaurantIds
+      }
+    });
+    if (restaurants.length !== restaurantIds.length) {
+      return res.status(400).json({
+        success: false,
+        message: 'Some restaurant IDs were not found'
+      });
+    }
+    const updatePromises = restaurants.map(async restaurant => {
+      restaurant.status = status;
+      if (remarks) restaurant.rejectionReason = remarks;
+      await restaurant.save();
+
+      // Send email notification
+      await sendEmail({
+        email: restaurant.email,
+        subject: `Status Update: ${status.toUpperCase()}`,
+        message: `Your status has been updated to: ${status.toUpperCase()}. ${remarks || ''}`
+      });
+      return restaurant;
+    });
+    const updatedRestaurants = await Promise.all(updatePromises);
+    res.status(200).json({
+      success: true,
+      message: `Successfully updated ${updatedRestaurants.length} restaurants`,
+      data: updatedRestaurants
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+};
+
+// Bulk update payment statuses
+exports.bulkUpdateDriverPayment = async (req, res) => {
+  try {
+    const {
+      driverIds,
+      action
+    } = req.body;
+    if (!driverIds || !Array.isArray(driverIds) || driverIds.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Please provide an array of driver IDs'
+      });
+    }
+    if (!action || !['approve', 'reject', 'retry'].includes(action)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Please provide a valid action'
+      });
+    }
+    let paymentStatus;
+    switch (action) {
+      case 'approve':
+        paymentStatus = 'completed';
+        break;
+      case 'reject':
+        paymentStatus = 'failed';
+        break;
+      case 'retry':
+        paymentStatus = 'pending';
+        break;
+    }
+    const drivers = await Driver.findAll({
+      where: {
+        id: driverIds
+      }
+    });
+    if (drivers.length !== driverIds.length) {
+      return res.status(400).json({
+        success: false,
+        message: 'Some driver IDs were not found'
+      });
+    }
+    const updatePromises = drivers.map(async driver => {
+      await driver.update({
+        paymentStatus
+      });
+
+      // Send email notification
+      await sendEmail({
+        email: driver.email,
+        subject: `Payment Status Update: ${paymentStatus.toUpperCase()}`,
+        message: `Your payment status has been updated to: ${paymentStatus.toUpperCase()}`
+      });
+      return {
+        id: driver.id,
+        paymentStatus
+      };
+    });
+    const updatedDrivers = await Promise.all(updatePromises);
+    res.status(200).json({
+      success: true,
+      message: `Successfully updated payment status for ${updatedDrivers.length} drivers`,
+      data: updatedDrivers
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+};
+exports.bulkUpdateRestaurantPayment = async (req, res) => {
+  try {
+    const {
+      restaurantIds,
+      action
+    } = req.body;
+    if (!restaurantIds || !Array.isArray(restaurantIds) || restaurantIds.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Please provide an array of restaurant IDs'
+      });
+    }
+    if (!action || !['approve', 'reject', 'retry'].includes(action)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Please provide a valid action'
+      });
+    }
+    let paymentStatus;
+    switch (action) {
+      case 'approve':
+        paymentStatus = 'completed';
+        break;
+      case 'reject':
+        paymentStatus = 'failed';
+        break;
+      case 'retry':
+        paymentStatus = 'pending';
+        break;
+    }
+    const restaurants = await Restaurant.findAll({
+      where: {
+        id: restaurantIds
+      }
+    });
+    if (restaurants.length !== restaurantIds.length) {
+      return res.status(400).json({
+        success: false,
+        message: 'Some restaurant IDs were not found'
+      });
+    }
+    const updatePromises = restaurants.map(async restaurant => {
+      await restaurant.update({
+        paymentStatus
+      });
+
+      // Send email notification
+      await sendEmail({
+        email: restaurant.email,
+        subject: `Payment Status Update: ${paymentStatus.toUpperCase()}`,
+        message: `Your payment status has been updated to: ${paymentStatus.toUpperCase()}`
+      });
+      return {
+        id: restaurant.id,
+        paymentStatus
+      };
+    });
+    const updatedRestaurants = await Promise.all(updatePromises);
+    res.status(200).json({
+      success: true,
+      message: `Successfully updated payment status for ${updatedRestaurants.length} restaurants`,
+      data: updatedRestaurants
     });
   } catch (error) {
     res.status(500).json({

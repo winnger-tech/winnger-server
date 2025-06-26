@@ -1,8 +1,9 @@
 const BaseController = require('./BaseController');
-const { Restaurant } = require('../models');
+const {
+  Restaurant
+} = require('../models');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
-
 class RestaurantStagedController extends BaseController {
   constructor() {
     super();
@@ -19,7 +20,11 @@ class RestaurantStagedController extends BaseController {
   // Stage 1: Initial registration with basic info only
   async register(req, res) {
     try {
-      const { ownerName, email, password } = req.body;
+      const {
+        ownerName,
+        email,
+        password
+      } = req.body;
 
       // Validate required fields
       if (!ownerName || !email || !password) {
@@ -27,7 +32,11 @@ class RestaurantStagedController extends BaseController {
       }
 
       // Check if restaurant already exists
-      const existingRestaurant = await Restaurant.findOne({ where: { email } });
+      const existingRestaurant = await Restaurant.findOne({
+        where: {
+          email
+        }
+      });
       if (existingRestaurant) {
         return this.errorResponse(res, 'Restaurant with this email already exists', 400);
       }
@@ -42,12 +51,13 @@ class RestaurantStagedController extends BaseController {
       });
 
       // Generate JWT token
-      const token = jwt.sign(
-        { id: restaurant.id, email: restaurant.email, type: 'restaurant' },
-        process.env.JWT_SECRET,
-        { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
-      );
-
+      const token = jwt.sign({
+        id: restaurant.id,
+        email: restaurant.email,
+        type: 'restaurant'
+      }, process.env.JWT_SECRET, {
+        expiresIn: process.env.JWT_EXPIRES_IN || '7d'
+      });
       this.successResponse(res, {
         message: 'Restaurant registered successfully',
         type: 'restaurant',
@@ -60,7 +70,6 @@ class RestaurantStagedController extends BaseController {
         },
         token
       }, 201);
-
     } catch (error) {
       console.error('Restaurant registration error:', error);
       this.errorResponse(res, error.message, 500);
@@ -70,14 +79,20 @@ class RestaurantStagedController extends BaseController {
   // Login
   async login(req, res) {
     try {
-      const { email, password } = req.body;
-
+      const {
+        email,
+        password
+      } = req.body;
       if (!email || !password) {
         return this.errorResponse(res, 'Email and password are required', 400);
       }
 
       // Find restaurant
-      const restaurant = await Restaurant.findOne({ where: { email } });
+      const restaurant = await Restaurant.findOne({
+        where: {
+          email
+        }
+      });
       if (!restaurant) {
         return this.errorResponse(res, 'Invalid credentials', 401);
       }
@@ -89,11 +104,13 @@ class RestaurantStagedController extends BaseController {
       }
 
       // Generate JWT token
-      const token = jwt.sign(
-        { id: restaurant.id, email: restaurant.email, type: 'restaurant' },
-        process.env.JWT_SECRET,
-        { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
-      );
+      const token = jwt.sign({
+        id: restaurant.id,
+        email: restaurant.email,
+        type: 'restaurant'
+      }, process.env.JWT_SECRET, {
+        expiresIn: process.env.JWT_EXPIRES_IN || '7d'
+      });
 
       // Generate a human-readable stage message
       let stageMessage = '';
@@ -107,7 +124,6 @@ class RestaurantStagedController extends BaseController {
           stageMessage = `You are currently on Stage ${restaurant.registrationStage}. Please complete this stage to continue.`;
         }
       }
-
       this.successResponse(res, {
         message: 'Login successful',
         type: 'restaurant',
@@ -121,7 +137,6 @@ class RestaurantStagedController extends BaseController {
         stageMessage,
         token
       });
-
     } catch (error) {
       console.error('Restaurant login error:', error);
       this.errorResponse(res, error.message, 500);
@@ -132,18 +147,17 @@ class RestaurantStagedController extends BaseController {
   async getProfile(req, res) {
     try {
       const restaurant = await Restaurant.findByPk(req.user.id, {
-        attributes: { exclude: ['password'] }
+        attributes: {
+          exclude: ['password']
+        }
       });
-
       if (!restaurant) {
         return this.errorResponse(res, 'Restaurant not found', 404);
       }
-
       this.successResponse(res, {
         restaurant,
         nextStage: this.getNextStageInfo(restaurant.registrationStage, restaurant)
       });
-
     } catch (error) {
       console.error('Get profile error:', error);
       this.errorResponse(res, error.message, 500);
@@ -157,10 +171,8 @@ class RestaurantStagedController extends BaseController {
       if (!restaurant) {
         return this.errorResponse(res, 'Restaurant not found', 404);
       }
-
       const currentStage = restaurant.registrationStage;
       const updateData = req.body;
-
       let nextStage = currentStage;
       let isComplete = false;
 
@@ -168,37 +180,33 @@ class RestaurantStagedController extends BaseController {
       if (currentStage === 1) {
         const requiredFields = ['phone', 'identificationType', 'restaurantName', 'businessAddress', 'city', 'province', 'postalCode'];
         const hasAllFields = requiredFields.every(field => updateData[field]);
-        
         if (hasAllFields) {
           nextStage = 2;
         }
       }
-      
+
       // Stage 3: Documents
       else if (currentStage === 2) {
         const requiredFields = ['businessDocumentUrl', 'drivingLicenseUrl', 'voidChequeUrl'];
         const hasAllFields = requiredFields.every(field => updateData[field]);
-        
         if (hasAllFields) {
           nextStage = 3;
         }
       }
-      
+
       // Stage 4: Menu and hours
       else if (currentStage === 3) {
         const requiredFields = ['menuDetails', 'hoursOfOperation'];
         const hasAllFields = requiredFields.every(field => updateData[field]);
-        
         if (hasAllFields) {
           nextStage = 4;
         }
       }
-      
+
       // Stage 5: Banking and tax information
       else if (currentStage === 4) {
         const requiredFields = ['bankingInfo', 'taxInfo'];
         const hasAllFields = requiredFields.every(field => updateData[field]);
-        
         if (hasAllFields) {
           nextStage = 5;
           isComplete = true;
@@ -214,15 +222,15 @@ class RestaurantStagedController extends BaseController {
 
       // Fetch updated restaurant
       const updatedRestaurant = await Restaurant.findByPk(req.user.id, {
-        attributes: { exclude: ['password'] }
+        attributes: {
+          exclude: ['password']
+        }
       });
-
       this.successResponse(res, {
         message: `Stage ${currentStage} completed successfully`,
         restaurant: updatedRestaurant,
         nextStage: isComplete ? null : this.getNextStageInfo(nextStage, updatedRestaurant)
       });
-
     } catch (error) {
       console.error('Update stage error:', error);
       this.errorResponse(res, error.message, 500);
@@ -245,7 +253,7 @@ class RestaurantStagedController extends BaseController {
           fields: ["phone", "identificationType", "restaurantName", "businessAddress", "city", "province", "postalCode"]
         },
         3: {
-          title: "Documents Upload", 
+          title: "Documents Upload",
           description: "Upload required business documents",
           fields: ["businessDocumentUrl", "drivingLicenseUrl", "voidChequeUrl"]
         },
@@ -260,9 +268,9 @@ class RestaurantStagedController extends BaseController {
           fields: ["bankingInfo", "taxInfo"]
         }
       };
-
-      this.successResponse(res, { stages });
-
+      this.successResponse(res, {
+        stages
+      });
     } catch (error) {
       console.error('Get stages error:', error);
       this.errorResponse(res, error.message, 500);
@@ -279,7 +287,7 @@ class RestaurantStagedController extends BaseController {
       },
       3: {
         title: "Documents Upload",
-        description: "Upload required business documents", 
+        description: "Upload required business documents",
         requiredFields: ["businessDocumentUrl", "drivingLicenseUrl", "voidChequeUrl"]
       },
       4: {
@@ -293,7 +301,6 @@ class RestaurantStagedController extends BaseController {
         requiredFields: ["bankingInfo", "taxInfo"]
       }
     };
-
     return stageInfo[currentStage] || null;
   }
 
@@ -301,9 +308,10 @@ class RestaurantStagedController extends BaseController {
   async getDashboard(req, res) {
     try {
       const restaurant = await Restaurant.findByPk(req.user.id, {
-        attributes: { exclude: ['password'] }
+        attributes: {
+          exclude: ['password']
+        }
       });
-
       if (!restaurant) {
         return this.errorResponse(res, 'Restaurant not found', 404);
       }
@@ -314,7 +322,8 @@ class RestaurantStagedController extends BaseController {
           title: "Basic Information",
           description: "Complete your basic owner information",
           fields: ["ownerName", "restaurantName", "email", "password"],
-          completed: true, // Always completed after registration
+          completed: true,
+          // Always completed after registration
           isCurrentStage: restaurant.registrationStage === 1
         },
         2: {
@@ -325,7 +334,7 @@ class RestaurantStagedController extends BaseController {
           isCurrentStage: restaurant.registrationStage === 2
         },
         3: {
-          title: "Documents Upload", 
+          title: "Documents Upload",
           description: "Upload required business documents",
           fields: ["businessDocumentUrl", "drivingLicenseUrl", "voidChequeUrl"],
           completed: restaurant.registrationStage > 2,
@@ -349,7 +358,6 @@ class RestaurantStagedController extends BaseController {
 
       // Get current stage details
       const currentStageInfo = this.getNextStageInfo(restaurant.registrationStage, restaurant);
-
       this.successResponse(res, {
         restaurant,
         currentStage: restaurant.registrationStage,
@@ -360,10 +368,9 @@ class RestaurantStagedController extends BaseController {
           totalStages: 5,
           completedStages: restaurant.registrationStage - 1,
           currentStage: restaurant.registrationStage,
-          percentage: Math.round(((restaurant.registrationStage - 1) / 5) * 100)
+          percentage: Math.round((restaurant.registrationStage - 1) / 5 * 100)
         }
       });
-
     } catch (error) {
       console.error('Get dashboard error:', error);
       this.errorResponse(res, error.message, 500);
@@ -373,9 +380,11 @@ class RestaurantStagedController extends BaseController {
   // Update specific stage (allows going back and forth)
   async updateSpecificStage(req, res) {
     try {
-      const { stage, data } = req.body;
+      const {
+        stage,
+        data
+      } = req.body;
       const restaurant = await Restaurant.findByPk(req.user.id);
-      
       if (!restaurant) {
         return this.errorResponse(res, 'Restaurant not found', 404);
       }
@@ -394,16 +403,16 @@ class RestaurantStagedController extends BaseController {
 
       // Fetch updated restaurant
       const updatedRestaurant = await Restaurant.findByPk(req.user.id, {
-        attributes: { exclude: ['password'] }
+        attributes: {
+          exclude: ['password']
+        }
       });
-
       this.successResponse(res, {
         message: `Stage ${stage} updated successfully`,
         restaurant: updatedRestaurant,
         currentStage: stage,
         isRegistrationComplete: stage === 5
       });
-
     } catch (error) {
       console.error('Update specific stage error:', error);
       this.errorResponse(res, error.message, 500);
@@ -413,18 +422,21 @@ class RestaurantStagedController extends BaseController {
   // Get specific stage data
   async getStageData(req, res) {
     try {
-      const { stage } = req.params;
+      const {
+        stage
+      } = req.params;
       const restaurant = await Restaurant.findByPk(req.user.id, {
-        attributes: { exclude: ['password'] }
+        attributes: {
+          exclude: ['password']
+        }
       });
-
       if (!restaurant) {
         return this.errorResponse(res, 'Restaurant not found', 404);
       }
 
       // Get stage-specific fields
       const stageFields = this.getStageFields(parseInt(stage));
-      
+
       // Extract only the fields relevant to this stage
       const stageData = {};
       stageFields.forEach(field => {
@@ -432,13 +444,11 @@ class RestaurantStagedController extends BaseController {
           stageData[field] = restaurant[field];
         }
       });
-
       this.successResponse(res, {
         stage: parseInt(stage),
         data: stageData,
         stageInfo: this.getNextStageInfo(parseInt(stage), restaurant)
       });
-
     } catch (error) {
       console.error('Get stage data error:', error);
       this.errorResponse(res, error.message, 500);
@@ -457,5 +467,4 @@ class RestaurantStagedController extends BaseController {
     return stageFields[stage] || [];
   }
 }
-
 module.exports = new RestaurantStagedController();

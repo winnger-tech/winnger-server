@@ -5,15 +5,28 @@ const {
   authorize
 } = require('../middleware/auth');
 const {
+  validateStatusUpdate,
+  validatePaymentUpdate,
+  validateBulkUpdate
+} = require('../middleware/validation');
+const {
   login,
   register,
   getDashboardStats,
   getAllDrivers,
   getAllRestaurants,
+  getDriverById,
+  getRestaurantById,
+  getAllDriversDetailed,
+  getAllRestaurantsDetailed,
   updateDriverStatus,
   updateRestaurantStatus,
   updateDriverPayment,
   updateRestaurantPayment,
+  bulkUpdateDriverStatus,
+  bulkUpdateRestaurantStatus,
+  bulkUpdateDriverPayment,
+  bulkUpdateRestaurantPayment,
   exportData
 } = require('../controllers/adminController');
 const {
@@ -33,20 +46,28 @@ router.get('/dashboard', getDashboardStats);
 
 // Driver routes
 router.get('/drivers', getAllDrivers);
-router.put('/drivers/:id/status', updateDriverStatus);
-router.put('/drivers/:id/payment', updateDriverPayment);
+router.get('/drivers/detailed', getAllDriversDetailed);
+router.get('/drivers/:id', getDriverById);
+router.put('/drivers/:id/status', validateStatusUpdate, updateDriverStatus);
+router.put('/drivers/:id/payment', validatePaymentUpdate, updateDriverPayment);
+router.put('/drivers/bulk/status', validateBulkUpdate, bulkUpdateDriverStatus);
+router.put('/drivers/bulk/payment', validateBulkUpdate, bulkUpdateDriverPayment);
 
 // Restaurant routes
 router.get('/restaurants', getAllRestaurants);
-router.put('/restaurants/:id/status', updateRestaurantStatus);
-router.put('/restaurants/:id/payment', updateRestaurantPayment);
+router.get('/restaurants/detailed', getAllRestaurantsDetailed);
+router.get('/restaurants/:id', getRestaurantById);
+router.put('/restaurants/:id/status', validateStatusUpdate, updateRestaurantStatus);
+router.put('/restaurants/:id/payment', validatePaymentUpdate, updateRestaurantPayment);
+router.put('/restaurants/bulk/status', validateBulkUpdate, bulkUpdateRestaurantStatus);
+router.put('/restaurants/bulk/payment', validateBulkUpdate, bulkUpdateRestaurantPayment);
 
 // Export routes
 router.get('/export', exportData);
 router.get('/me', protect, async (req, res) => {
   try {
     console.log('🔐 req.admin:', req.admin);
-    const admin = await Admin.findById(req.admin.id);
+    const admin = await Admin.findByPk(req.admin.id);
     res.status(200).json({
       success: true,
       data: admin

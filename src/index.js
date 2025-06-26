@@ -116,7 +116,7 @@ app.use((req, res) => {
   });
 });
 
-const PORT =  5000;
+const PORT =  5001;
 
 // Connect to database and start server
 const startServer = async () => {

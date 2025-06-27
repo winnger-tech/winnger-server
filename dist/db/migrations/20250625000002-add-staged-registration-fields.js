@@ -3,32 +3,32 @@ const {
 } = require('sequelize');
 module.exports = {
   async up(queryInterface, Sequelize) {
-    // Add registrationStage column to Drivers table
-    await queryInterface.addColumn('Drivers', 'registrationStage', {
+    // Add registrationStage column to drivers table
+    await queryInterface.addColumn('drivers', 'registrationStage', {
       type: DataTypes.INTEGER,
       allowNull: false,
       defaultValue: 1
     });
 
-    // Add isRegistrationComplete column to Drivers table
-    await queryInterface.addColumn('Drivers', 'isRegistrationComplete', {
+    // Add isRegistrationComplete column to drivers table
+    await queryInterface.addColumn('drivers', 'isRegistrationComplete', {
       type: DataTypes.BOOLEAN,
       allowNull: false,
       defaultValue: false
     });
 
-    // Check if Restaurants table exists before adding columns
-    const [results] = await queryInterface.sequelize.query("SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'Restaurants'");
+    // Check if restaurants table exists before adding columns
+    const [results] = await queryInterface.sequelize.query("SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'restaurants'");
     if (results.length > 0) {
-      // Add registrationStage column to Restaurants table
-      await queryInterface.addColumn('Restaurants', 'registrationStage', {
+      // Add registrationStage column to restaurants table
+      await queryInterface.addColumn('restaurants', 'registrationStage', {
         type: DataTypes.INTEGER,
         allowNull: false,
         defaultValue: 1
       });
 
-      // Add isRegistrationComplete column to Restaurants table
-      await queryInterface.addColumn('Restaurants', 'isRegistrationComplete', {
+      // Add isRegistrationComplete column to restaurants table
+      await queryInterface.addColumn('restaurants', 'isRegistrationComplete', {
         type: DataTypes.BOOLEAN,
         allowNull: false,
         defaultValue: false
@@ -36,14 +36,14 @@ module.exports = {
     }
   },
   async down(queryInterface, Sequelize) {
-    await queryInterface.removeColumn('Drivers', 'registrationStage');
-    await queryInterface.removeColumn('Drivers', 'isRegistrationComplete');
+    await queryInterface.removeColumn('drivers', 'registrationStage');
+    await queryInterface.removeColumn('drivers', 'isRegistrationComplete');
 
-    // Check if Restaurants table exists before removing columns
-    const [results] = await queryInterface.sequelize.query("SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'Restaurants'");
+    // Check if restaurants table exists before removing columns
+    const [results] = await queryInterface.sequelize.query("SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'restaurants'");
     if (results.length > 0) {
-      await queryInterface.removeColumn('Restaurants', 'registrationStage');
-      await queryInterface.removeColumn('Restaurants', 'isRegistrationComplete');
+      await queryInterface.removeColumn('restaurants', 'registrationStage');
+      await queryInterface.removeColumn('restaurants', 'isRegistrationComplete');
     }
   }
 };

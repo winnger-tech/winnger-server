@@ -10,4 +10,4 @@ process.env.AWS_REGION = 'us-east-1';
 process.env.AWS_S3_BUCKET_NAME = 'test-bucket';
 process.env.STRIPE_SECRET_KEY = 'test-stripe-key';
 process.env.CERTN_API_KEY = 'test-certn-key';
-process.env.API_URL = 'http://localhost:3000';
+process.env.API_URL = 'http://localhost:3000'; 

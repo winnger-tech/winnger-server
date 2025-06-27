@@ -14,8 +14,7 @@ class DriverController extends BaseController {
 
   async register(req, res) {
     try {
-      console.log('📥 Received files:', req.files);     // Logs profilePhoto, licenceFront, etc.
-      console.log('📝 Received body:', req.body);  
+     
       this.validateRequest(req);
   
       const {
@@ -42,16 +41,42 @@ class DriverController extends BaseController {
         workEligibilityType,
         sinNumber,
         bankingInfo,
-        consentAndDeclarations
+        consentAndDeclarations,
+        // Document URLs from frontend
+        profilePhotoUrl,
+        driversLicenseFrontUrl,
+        driversLicenseBackUrl,
+        vehicleRegistrationUrl,
+        vehicleInsuranceUrl,
+        drivingAbstractUrl,
+        workEligibilityUrl,
+        sinCardUrl,
+        criminalBackgroundCheckUrl,
+        criminalBackgroundCheckDate
       } = req.body;
   
       const parsedBankingInfo = JSON.parse(bankingInfo);
       const parsedConsentAndDeclarations = JSON.parse(consentAndDeclarations);
   
+      // Validate required document URLs
+      const requiredDocuments = {
+        profilePhotoUrl,
+        driversLicenseFrontUrl,
+        driversLicenseBackUrl,
+        vehicleRegistrationUrl,
+        vehicleInsuranceUrl,
+        drivingAbstractUrl,
+        workEligibilityUrl
+      };
+  
+      for (const [docType, url] of Object.entries(requiredDocuments)) {
+        if (!url) {
+          throw new Error(`Missing required document URL: ${docType}`);
+        }
+      }
+  
       // Create driver without payment intent
       const result = await sequelize.transaction(async (t) => {
-        const documentUrls = await this.uploadDriverDocuments(req.files);
-  
         const driver = await Driver.create({
           email,
           password,
@@ -79,7 +104,17 @@ class DriverController extends BaseController {
           bankingInfo: parsedBankingInfo,
           consentAndDeclarations: parsedConsentAndDeclarations,
           paymentStatus: 'pending', // Set as pending
-          ...documentUrls
+          // Document URLs
+          profilePhotoUrl,
+          driversLicenseFrontUrl,
+          driversLicenseBackUrl,
+          vehicleRegistrationUrl,
+          vehicleInsuranceUrl,
+          drivingAbstractUrl,
+          workEligibilityUrl,
+          sinCardUrl,
+          criminalBackgroundCheckUrl,
+          criminalBackgroundCheckDate
         }, { transaction: t });
   
         return driver;
@@ -100,35 +135,6 @@ class DriverController extends BaseController {
         message: error.message || 'Failed to register driver'
       });
     }
-  }
-  
-
-  async uploadDriverDocuments(files) {
-    const documentUrls = {};
-    const requiredDocuments = [
-      'profilePhoto',
-      'driversLicenseFront',
-      'driversLicenseBack',
-      'vehicleRegistration',
-      'vehicleInsurance',
-      'drivingAbstract',
-      'criminalBackgroundCheck', // ADDED
-      'workEligibility'
-    ];
-  
-    for (const docType of requiredDocuments) {
-      if (files[docType] && files[docType][0]) {
-        documentUrls[`${docType}Url`] = files[docType][0].location;
-      } else {
-        throw new Error(`Missing required document: ${docType}`);
-      }
-    }
-  
-    if (files.sinCard && files.sinCard[0]) {
-      documentUrls.sinCardUrl = files.sinCard[0].location;
-    }
-  
-    return documentUrls;
   }
   
 
@@ -166,42 +172,42 @@ class DriverController extends BaseController {
         throw { status: 500, message: 'Failed to update payment status' };
       }
   
-      // Initiate background check
-      try {
-        const applicant = await certnApi.createApplicant({
-          firstName: driver.firstName,
-          lastName: driver.lastName,
-          email: driver.email,
-          phoneNumber: driver.cellNumber,
-          dateOfBirth: driver.dateOfBirth,
-          address: {
-            streetAddress: driver.streetNameNumber,
-            unit: driver.appUniteNumber,
-            city: driver.city,
-            province: driver.province,
-            postalCode: driver.postalCode,
-            country: 'CA'
-          },
-          documents: {
-            driverLicense: driver.driversLicenseNumber,
-            sinNumber: driver.sinNumber
-          }
-        });
+      // Initiate background check (now optional)
+      // try {
+      //   const applicant = await certnApi.createApplicant({
+      //     firstName: driver.firstName,
+      //     lastName: driver.lastName,
+      //     email: driver.email,
+      //     phoneNumber: driver.cellNumber,
+      //     dateOfBirth: driver.dateOfBirth,
+      //     address: {
+      //       streetAddress: driver.streetNameNumber,
+      //       unit: driver.appUniteNumber,
+      //       city: driver.city,
+      //       province: driver.province,
+      //       postalCode: driver.postalCode,
+      //       country: 'CA'
+      //     },
+      //     documents: {
+      //       driverLicense: driver.driversLicenseNumber,
+      //       sinNumber: driver.sinNumber
+      //     }
+      //   });
   
-        const check = await certnApi.requestBackgroundCheck({
-          type: 'criminal',
-          applicantId: applicant.id,
-          callbackUrl: `${process.env.API_URL}/api/drivers/background-check-webhook`
-        });
+      //   const check = await certnApi.requestBackgroundCheck({
+      //     type: 'criminal',
+      //     applicantId: applicant.id,
+      //     callbackUrl: `${process.env.API_URL}/api/drivers/background-check-webhook`
+      //   });
   
-        await driver.update({
-          certnApplicantId: applicant.id,
-          backgroundCheckStatus: 'in_progress'
-        });
-      } catch (bgError) {
-        console.error('Background check initiation failed:', bgError);
-        // Don't fail the payment confirmation if background check fails
-      }
+      //   await driver.update({
+      //     certnApplicantId: applicant.id,
+      //     backgroundCheckStatus: 'in_progress'
+      //   });
+      // } catch (bgError) {
+      //   console.error('Background check initiation failed:', bgError);
+      //   // Don't fail the payment confirmation if background check fails
+      // }
   
       return res.json({
         success: true,
@@ -252,6 +258,84 @@ class DriverController extends BaseController {
 
     } catch (error) {
       return this.handleError(error, res);
+    }
+  }
+
+  async checkRegistrationStatus(req, res) {
+    try {
+      const { driverId } = req.params;
+
+      const driver = await Driver.findByPk(driverId);
+      if (!driver) {
+        throw { status: 404, message: 'Driver not found' };
+      }
+
+      // Check all registration requirements
+      const registrationStatus = {
+        isComplete: false,
+        paymentStatus: driver.paymentStatus,
+        backgroundCheckStatus: driver.backgroundCheckStatus,
+        adminApprovalStatus: driver.status,
+        missingRequirements: []
+      };
+
+      // Check payment status
+      if (driver.paymentStatus !== 'completed') {
+        registrationStatus.missingRequirements.push('Payment not completed');
+      }
+
+      // Background check is now optional - don't block registration completion
+      // if (driver.backgroundCheckStatus !== 'completed') {
+      //   registrationStatus.missingRequirements.push('Background check not completed');
+      // }
+
+      // Check admin approval status
+      if (driver.status !== 'approved') {
+        registrationStatus.missingRequirements.push('Admin approval pending');
+      }
+
+      // Registration is complete if all requirements are met
+      registrationStatus.isComplete = registrationStatus.missingRequirements.length === 0;
+
+      return res.json({
+        success: true,
+        data: registrationStatus
+      });
+
+    } catch (error) {
+      console.error('Registration status check error:', error);
+      return res.status(error.status || 500).json({
+        success: false,
+        message: error.message || 'Failed to check registration status'
+      });
+    }
+  }
+
+  async getDriverById(req, res) {
+    try {
+      const { driverId } = req.params;
+
+      const driver = await Driver.findByPk(driverId, {
+        attributes: { 
+          exclude: ['password', 'bankingInfo', 'sinNumber'] // Exclude sensitive data
+        }
+      });
+
+      if (!driver) {
+        throw { status: 404, message: 'Driver not found' };
+      }
+
+      return res.json({
+        success: true,
+        data: driver
+      });
+
+    } catch (error) {
+      console.error('Get driver by ID error:', error);
+      return res.status(error.status || 500).json({
+        success: false,
+        message: error.message || 'Failed to retrieve driver'
+      });
     }
   }
 }

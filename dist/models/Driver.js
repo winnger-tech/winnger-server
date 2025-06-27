@@ -3,13 +3,16 @@ const {
   DataTypes
 } = require('sequelize');
 const bcrypt = require('bcryptjs');
+
 module.exports = sequelize => {
   class Driver extends Model {
     static associate(models) {}
+    
     async comparePassword(candidatePassword) {
       return await bcrypt.compare(candidatePassword, this.password);
     }
   }
+  
   Driver.init({
     id: {
       type: DataTypes.UUID,
@@ -23,7 +26,7 @@ module.exports = sequelize => {
     },
     profilePhotoUrl: {
       type: DataTypes.STRING,
-      allowNull: true // No live capture required
+      allowNull: false
     },
     password: {
       type: DataTypes.STRING,
@@ -35,7 +38,7 @@ module.exports = sequelize => {
     },
     middleName: {
       type: DataTypes.STRING,
-      allowNull: true
+      allowNull: false
     },
     lastName: {
       type: DataTypes.STRING,
@@ -55,7 +58,7 @@ module.exports = sequelize => {
     },
     appUniteNumber: {
       type: DataTypes.STRING,
-      allowNull: true
+      allowNull: false
     },
     city: {
       type: DataTypes.STRING,
@@ -127,11 +130,11 @@ module.exports = sequelize => {
     },
     criminalBackgroundCheckUrl: {
       type: DataTypes.STRING,
-      allowNull: true
+      allowNull: false
     },
     criminalBackgroundCheckDate: {
       type: DataTypes.DATE,
-      allowNull: true
+      allowNull: false
     },
     workEligibilityUrl: {
       type: DataTypes.STRING,
@@ -147,7 +150,7 @@ module.exports = sequelize => {
     },
     sinCardUrl: {
       type: DataTypes.STRING,
-      allowNull: true
+      allowNull: false
     },
     bankingInfo: {
       type: DataTypes.JSONB,
@@ -155,21 +158,23 @@ module.exports = sequelize => {
     },
     backgroundCheckStatus: {
       type: DataTypes.ENUM('pending', 'in_progress', 'completed', 'failed'),
-      defaultValue: 'pending'
+      defaultValue: 'pending',
+      allowNull: false
     },
     certnApplicantId: {
       type: DataTypes.STRING,
-      allowNull: true
+      allowNull: false
     },
     stripePaymentIntentId: {
       type: DataTypes.STRING,
-      allowNull: true
+      allowNull: false
     },
     status: {
       type: DataTypes.ENUM('pending', 'approved', 'rejected'),
       defaultValue: 'pending',
       allowNull: false
     },
+    
     paymentStatus: {
       type: DataTypes.ENUM('pending', 'completed', 'failed'),
       defaultValue: 'pending',
@@ -177,16 +182,27 @@ module.exports = sequelize => {
     },
     emailVerified: {
       type: DataTypes.BOOLEAN,
-      defaultValue: false
+      defaultValue: false,
+      allowNull: false
     },
     consentAndDeclarations: {
       type: DataTypes.JSONB,
       allowNull: false,
       defaultValue: {}
+    },
+    registrationStage: {
+      type: DataTypes.INTEGER,
+      defaultValue: 1,
+      allowNull: false
+    },
+    isRegistrationComplete: {
+      type: DataTypes.BOOLEAN,
+      defaultValue: false,
+      allowNull: false
     }
   }, {
     sequelize,
-    modelName: 'Driver',
+    modelName: 'drivers',
     hooks: {
       beforeSave: async driver => {
         if (driver.changed('password')) {
@@ -196,5 +212,6 @@ module.exports = sequelize => {
       }
     }
   });
+  
   return Driver;
 };

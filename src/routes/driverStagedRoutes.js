@@ -13,9 +13,18 @@ router.use(auth); // Apply auth middleware to all routes below
 
 router.get('/profile', driverStagedController.getProfile);
 router.get('/dashboard', driverStagedController.getDashboard);
+router.get('/stages', driverStagedController.getRegistrationStages);
+router.get('/stage/:stage', driverStagedController.getStageData);
+
+// Stage-specific update routes
+router.put('/stage/1', validateDriverUpdate, driverStagedController.updateStage1);
+router.put('/stage/2', validateDriverUpdate, driverStagedController.updateStage2);
+router.put('/stage/3', validateDriverUpdate, driverStagedController.updateStage3);
+router.put('/stage/4', validateDriverUpdate, driverStagedController.updateStage4);
+router.put('/stage/5', validateDriverUpdate, driverStagedController.updateStage5);
+
+// Legacy routes (keeping for backward compatibility)
 router.put('/update-stage', validateDriverUpdate, driverStagedController.updateStage);
 router.put('/update-specific-stage', driverStagedController.updateSpecificStage);
-router.get('/stage/:stage', driverStagedController.getStageData);
-router.get('/stages', driverStagedController.getRegistrationStages);
 
 module.exports = router;

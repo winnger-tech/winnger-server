@@ -10,7 +10,7 @@ router.use('/drivers', driverRoutes);
 router.use('/restaurants', restaurantRoutes);
 
 // Staged registration routes
-router.use('/drivers-staged', driverStagedRoutes);
-router.use('/restaurants-staged', restaurantStagedRoutes);
+router.use('/drivers/staged', driverStagedRoutes);
+router.use('/restaurants/staged', restaurantStagedRoutes);
 
 module.exports = router; 

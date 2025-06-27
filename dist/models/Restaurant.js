@@ -55,30 +55,39 @@ module.exports = sequelize => {
       type: DataTypes.ENUM('licence', 'pr_card', 'passport', 'medical_card', 'provincial_id'),
       allowNull: true // Allow null for initial registration
     },
+
+    ownerAddress: {
+      type: DataTypes.STRING,
+      allowNull: true // Allow null for initial registration
+    },
+    businessType: {
+      type: DataTypes.ENUM('solo', 'corporate'),
+      allowNull: true // Allow null for initial registration
+    },
     // Business Information
     restaurantName: {
       type: DataTypes.STRING,
       allowNull: true // Allow null for initial registration
     },
-    // businessEmail: {
-    //   type: DataTypes.STRING,
-    //   allowNull: false,
-    //   validate: {
-    //     isEmail: true
-    //   }
-    // },
-    // businessPhone: {
-    //   type: DataTypes.STRING,
-    //   allowNull: false,
-    //   validate: {
-    //     isValidPhone(value) {
-    //       if (!/^\+?1?\d{10,14}$/.test(value.replace(/[\s\-\(\)]/g, ''))) {
-    //         throw new Error('Invalid phone number format');
-    //       }
-    //     }
-    //   }
-    // },
-    businessAddress: {
+    businessEmail: {
+      type: DataTypes.STRING,
+      allowNull: false,
+      validate: {
+        isEmail: true
+      }
+    },
+    businessPhone: {
+      type: DataTypes.STRING,
+      allowNull: false,
+      validate: {
+        isValidPhone(value) {
+          if (!/^\+?1?\d{10,14}$/.test(value.replace(/[\s\-\(\)]/g, ''))) {
+            throw new Error('Invalid phone number format');
+          }
+        }
+      }
+    },
+    restaurantAddress: {
       type: DataTypes.STRING,
       allowNull: true // Allow null for initial registration
     },
@@ -98,6 +107,7 @@ module.exports = sequelize => {
         is: /^[A-Za-z]\d[A-Za-z][ -]?\d[A-Za-z]\d$/
       }
     },
+    //2nd stage
     // Banking Information
     bankingInfo: {
       type: DataTypes.JSONB,
@@ -107,7 +117,7 @@ module.exports = sequelize => {
         hasRequiredFields(value) {
           if (value) {
             // Only validate if value exists
-            const required = ['transitNumber', 'institutionNumber', 'accountNumber'];
+            const required = ['transitNumber', 'institutionNumber', 'accountNumber',];
             for (const field of required) {
               if (!value[field]) {
                 throw new Error(`Banking info missing ${field}`);
@@ -126,43 +136,22 @@ module.exports = sequelize => {
         }
       }
     },
-    // Tax Information - Dynamic based on province
-    taxInfo: {
-      type: DataTypes.JSONB,
+    HSTNumber: {
+      type: DataTypes.STRING,
       allowNull: true,
       // Allow null for initial registration
-      validate: {
-        hasRequiredFieldsForProvince(value) {
-          if (value && this.province) {
-            // Only validate if both values exist
-            // Province-based tax validation
-            const provinceTaxMap = {
-              'AB': ['GST'],
-              'BC': ['GST', 'PST'],
-              'MB': ['GST', 'PST'],
-              'NB': ['HST'],
-              'NL': ['HST'],
-              'NS': ['HST'],
-              'NT': ['GST'],
-              'NU': ['GST'],
-              'ON': ['HST'],
-              'PE': ['HST'],
-              'QC': ['GST', 'QST'],
-              'SK': ['GST', 'PST'],
-              'YT': ['GST']
-            };
-            const restaurant = this;
-            const requiredTaxes = provinceTaxMap[restaurant.province] || [];
-            for (const tax of requiredTaxes) {
-              const fieldName = `${tax.toLowerCase()}Number`;
-              if (!value[fieldName]) {
-                throw new Error(`${tax} number is required for province ${restaurant.province}`);
-              }
-            }
-          }
-        }
-      }
     },
+    //3rd stage
+
+    //
+    businessLicenseUrl: {
+      type: DataTypes.STRING,
+      allowNull: true,
+      // Allow null for initial registration
+    },
+
+
+  
     // Document URLs
     businessDocumentUrl: {
       type: DataTypes.STRING,
@@ -178,53 +167,35 @@ module.exports = sequelize => {
       type: DataTypes.STRING,
       allowNull: true // Allow null for initial registration
     },
-    // Menu Details
-    menuDetails: {
-      type: DataTypes.JSONB,
-      allowNull: true,
-      // Allow null for initial registration
-      defaultValue: [],
-      validate: {
-        isValidMenuFormat(value) {
-          if (value && !Array.isArray(value)) {
-            throw new Error('Menu details must be an array');
-          }
-          if (value) {
-            for (const item of value) {
-              if (!item.name || !item.price || item.price <= 0) {
-                throw new Error('Each menu item must have a name and valid price');
-              }
-              if (item.imageUrl && typeof item.imageUrl !== 'string') {
-                throw new Error('Menu item image URL must be a string');
-              }
-            }
-          }
-        }
-      }
+
+    HSTdocumentUrl: {
+      type: DataTypes.STRING,
+      allowNull: true // Allow null for initial registration
     },
-    // Hours of Operation
-    hoursOfOperation: {
-      type: DataTypes.JSONB,
-      allowNull: true,
-      // Allow null for initial registration
-      defaultValue: [],
-      validate: {
-        isValidHoursFormat(value) {
-          if (!Array.isArray(value)) {
-            throw new Error('Hours of operation must be an array');
-          }
-          const validDays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
-          for (const hours of value) {
-            if (!validDays.includes(hours.day)) {
-              throw new Error('Invalid day in hours of operation');
-            }
-            if (!hours.isClosed && (!hours.openTime || !hours.closeTime)) {
-              throw new Error('Open and close times required when not closed');
-            }
-          }
-        }
-      }
+    foodHandlingCertificateUrl: {
+      type: DataTypes.STRING,
+      allowNull: true // Allow null for initial registration
     },
+    articleofIncorporation :{
+      type: DataTypes.STRING,
+      allowNull: true // Allow null for initial registration
+    },
+    articleofIncorporationExpiryDate:{
+      type: DataTypes.DATE,
+      allowNull: true // Allow null for initial registration
+    },
+    foofHandlingCertificateUrl: {
+      type: DataTypes.STRING,
+      allowNull: true // Allow null for initial registration
+    },
+  foodSafetyCertificateExpiryDate: {
+    type: DataTypes.DATE,
+    allowNull: true // Allow null for initial registration
+  },
+
+
+   
+  
     // Payment Information
     stripePaymentIntentId: {
       type: DataTypes.STRING,

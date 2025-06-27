@@ -164,44 +164,80 @@ class RestaurantStagedController extends BaseController {
       let nextStage = currentStage;
       let isComplete = false;
 
-      // Stage 2: Business details
+      // Stage 1: Basic owner and business information
       if (currentStage === 1) {
-        const requiredFields = ['phone', 'identificationType', 'restaurantName', 'businessAddress', 'city', 'province', 'postalCode'];
-        const hasAllFields = requiredFields.every(field => updateData[field]);
+        const requiredFields = [
+          'phone', 'identificationType', 'ownerAddress', 'businessType',
+          'restaurantName', 'businessEmail', 'businessPhone', 'restaurantAddress',
+          'city', 'province', 'postalCode'
+        ];
+        
+        // Check if all required fields are provided
+        const hasAllFields = requiredFields.every(field => {
+          const value = updateData[field];
+          return value !== undefined && value !== null && value !== '';
+        });
         
         if (hasAllFields) {
           nextStage = 2;
+        } else {
+          const missingFields = requiredFields.filter(field => {
+            const value = updateData[field];
+            return value === undefined || value === null || value === '';
+          });
+          return this.errorResponse(res, `Missing required fields: ${missingFields.join(', ')}`, 400);
         }
       }
       
-      // Stage 3: Documents
+      // Stage 2: Banking information and HST number
       else if (currentStage === 2) {
-        const requiredFields = ['businessDocumentUrl', 'drivingLicenseUrl', 'voidChequeUrl'];
-        const hasAllFields = requiredFields.every(field => updateData[field]);
+        const requiredFields = ['bankingInfo', 'HSTNumber'];
+        
+        // Check if all required fields are provided
+        const hasAllFields = requiredFields.every(field => {
+          const value = updateData[field];
+          if (field === 'bankingInfo') {
+            return value && value.transitNumber && value.institutionNumber && value.accountNumber;
+          }
+          return value !== undefined && value !== null && value !== '';
+        });
         
         if (hasAllFields) {
           nextStage = 3;
+        } else {
+          const missingFields = requiredFields.filter(field => {
+            const value = updateData[field];
+            if (field === 'bankingInfo') {
+              return !value || !value.transitNumber || !value.institutionNumber || !value.accountNumber;
+            }
+            return value === undefined || value === null || value === '';
+          });
+          return this.errorResponse(res, `Missing required fields: ${missingFields.join(', ')}`, 400);
         }
       }
       
-      // Stage 4: Menu and hours
+      // Stage 3: Document uploads
       else if (currentStage === 3) {
-        const requiredFields = ['menuDetails', 'hoursOfOperation'];
-        const hasAllFields = requiredFields.every(field => updateData[field]);
+        const requiredFields = [
+          'drivingLicenseUrl', 'voidChequeUrl', 'HSTdocumentUrl', 
+          'foodHandlingCertificateUrl', 'articleofIncorporation'
+        ];
+        
+        // Check if all required fields are provided
+        const hasAllFields = requiredFields.every(field => {
+          const value = updateData[field];
+          return value !== undefined && value !== null && value !== '';
+        });
         
         if (hasAllFields) {
-          nextStage = 4;
-        }
-      }
-      
-      // Stage 5: Banking and tax information
-      else if (currentStage === 4) {
-        const requiredFields = ['bankingInfo', 'taxInfo'];
-        const hasAllFields = requiredFields.every(field => updateData[field]);
-        
-        if (hasAllFields) {
-          nextStage = 5;
+          nextStage = 3; // Stay at stage 3 but mark as complete
           isComplete = true;
+        } else {
+          const missingFields = requiredFields.filter(field => {
+            const value = updateData[field];
+            return value === undefined || value === null || value === '';
+          });
+          return this.errorResponse(res, `Missing required fields: ${missingFields.join(', ')}`, 400);
         }
       }
 
@@ -234,30 +270,27 @@ class RestaurantStagedController extends BaseController {
     try {
       const stages = {
         1: {
-          title: "Basic Information",
-          description: "Complete your basic owner information",
-          fields: ["ownerName", "email", "password"],
+          title: "Basic Owner & Business Information",
+          description: "Complete your basic owner and business information",
+          fields: [
+            "ownerName", "email", "password", "phone", "identificationType", 
+            "ownerAddress", "businessType", "restaurantName", "businessEmail", 
+            "businessPhone", "restaurantAddress", "city", "province", "postalCode"
+          ],
           completed: true // Always completed after registration
         },
         2: {
-          title: "Business Details",
-          description: "Provide your business and contact information",
-          fields: ["phone", "identificationType", "restaurantName", "businessAddress", "city", "province", "postalCode"]
+          title: "Banking Information & HST Number",
+          description: "Provide your banking information and HST number",
+          fields: ["bankingInfo", "HSTNumber"]
         },
         3: {
-          title: "Documents Upload", 
+          title: "Document Uploads", 
           description: "Upload required business documents",
-          fields: ["businessDocumentUrl", "drivingLicenseUrl", "voidChequeUrl"]
-        },
-        4: {
-          title: "Menu & Hours",
-          description: "Set up your menu and operating hours",
-          fields: ["menuDetails", "hoursOfOperation"]
-        },
-        5: {
-          title: "Banking & Tax Information",
-          description: "Complete banking and tax information",
-          fields: ["bankingInfo", "taxInfo"]
+          fields: [
+            "drivingLicenseUrl", "voidChequeUrl", "HSTdocumentUrl", 
+            "foodHandlingCertificateUrl", "articleofIncorporation"
+          ]
         }
       };
 
@@ -273,24 +306,17 @@ class RestaurantStagedController extends BaseController {
   getNextStageInfo(currentStage, restaurant) {
     const stageInfo = {
       2: {
-        title: "Business Details",
-        description: "Please provide your business and contact information",
-        requiredFields: ["phone", "identificationType", "restaurantName", "businessAddress", "city", "province", "postalCode"]
+        title: "Banking Information & HST Number",
+        description: "Please provide your banking information and HST number",
+        requiredFields: ["bankingInfo", "HSTNumber"]
       },
       3: {
-        title: "Documents Upload",
+        title: "Document Uploads",
         description: "Upload required business documents", 
-        requiredFields: ["businessDocumentUrl", "drivingLicenseUrl", "voidChequeUrl"]
-      },
-      4: {
-        title: "Menu & Hours",
-        description: "Set up your menu and operating hours",
-        requiredFields: ["menuDetails", "hoursOfOperation"]
-      },
-      5: {
-        title: "Banking & Tax Information",
-        description: "Complete banking and tax information",
-        requiredFields: ["bankingInfo", "taxInfo"]
+        requiredFields: [
+          "drivingLicenseUrl", "voidChequeUrl", "HSTdocumentUrl", 
+          "foodHandlingCertificateUrl", "articleofIncorporation"
+        ]
       }
     };
 
@@ -311,39 +337,32 @@ class RestaurantStagedController extends BaseController {
       // Get all stages information
       const stages = {
         1: {
-          title: "Basic Information",
-          description: "Complete your basic owner information",
-          fields: ["ownerName", "restaurantName", "email", "password"],
+          title: "Basic Owner & Business Information",
+          description: "Complete your basic owner and business information",
+          fields: [
+            "ownerName", "email", "phone", "identificationType", "ownerAddress", 
+            "businessType", "restaurantName", "businessEmail", "businessPhone", 
+            "restaurantAddress", "city", "province", "postalCode"
+          ],
           completed: true, // Always completed after registration
           isCurrentStage: restaurant.registrationStage === 1
         },
         2: {
-          title: "Business Details",
-          description: "Provide your business and contact information",
-          fields: ["phone", "identificationType", "businessAddress", "city", "province", "postalCode"],
+          title: "Banking Information & HST Number",
+          description: "Provide your banking information and HST number",
+          fields: ["bankingInfo", "HSTNumber"],
           completed: restaurant.registrationStage > 1,
           isCurrentStage: restaurant.registrationStage === 2
         },
         3: {
-          title: "Documents Upload", 
+          title: "Document Uploads", 
           description: "Upload required business documents",
-          fields: ["businessDocumentUrl", "drivingLicenseUrl", "voidChequeUrl"],
+          fields: [
+            "drivingLicenseUrl", "voidChequeUrl", "HSTdocumentUrl", 
+            "foodHandlingCertificateUrl", "articleofIncorporation"
+          ],
           completed: restaurant.registrationStage > 2,
           isCurrentStage: restaurant.registrationStage === 3
-        },
-        4: {
-          title: "Menu & Hours",
-          description: "Set up your menu and operating hours",
-          fields: ["menuDetails", "hoursOfOperation"],
-          completed: restaurant.registrationStage > 3,
-          isCurrentStage: restaurant.registrationStage === 4
-        },
-        5: {
-          title: "Banking & Tax Information",
-          description: "Complete banking and tax information",
-          fields: ["bankingInfo", "taxInfo"],
-          completed: restaurant.registrationStage > 4,
-          isCurrentStage: restaurant.registrationStage === 5
         }
       };
 
@@ -357,10 +376,10 @@ class RestaurantStagedController extends BaseController {
         stages,
         currentStageInfo,
         progress: {
-          totalStages: 5,
+          totalStages: 3,
           completedStages: restaurant.registrationStage - 1,
           currentStage: restaurant.registrationStage,
-          percentage: Math.round(((restaurant.registrationStage - 1) / 5) * 100)
+          percentage: Math.round(((restaurant.registrationStage - 1) / 3) * 100)
         }
       });
 
@@ -381,7 +400,7 @@ class RestaurantStagedController extends BaseController {
       }
 
       // Validate stage number
-      if (stage < 1 || stage > 5) {
+      if (stage < 1 || stage > 3) {
         return this.errorResponse(res, 'Invalid stage number', 400);
       }
 
@@ -389,7 +408,7 @@ class RestaurantStagedController extends BaseController {
       await restaurant.update({
         ...data,
         registrationStage: stage,
-        isRegistrationComplete: stage === 5
+        isRegistrationComplete: stage === 3
       });
 
       // Fetch updated restaurant
@@ -401,7 +420,7 @@ class RestaurantStagedController extends BaseController {
         message: `Stage ${stage} updated successfully`,
         restaurant: updatedRestaurant,
         currentStage: stage,
-        isRegistrationComplete: stage === 5
+        isRegistrationComplete: stage === 3
       });
 
     } catch (error) {
@@ -448,11 +467,16 @@ class RestaurantStagedController extends BaseController {
   // Helper method to get fields for specific stage
   getStageFields(stage) {
     const stageFields = {
-      1: ['ownerName', 'restaurantName', 'email'],
-      2: ['phone', 'identificationType', 'businessAddress', 'city', 'province', 'postalCode'],
-      3: ['businessDocumentUrl', 'drivingLicenseUrl', 'voidChequeUrl'],
-      4: ['menuDetails', 'hoursOfOperation'],
-      5: ['bankingInfo', 'taxInfo']
+      1: [
+        'ownerName', 'email', 'phone', 'identificationType', 'ownerAddress', 
+        'businessType', 'restaurantName', 'businessEmail', 'businessPhone', 
+        'restaurantAddress', 'city', 'province', 'postalCode'
+      ],
+      2: ['bankingInfo', 'HSTNumber'],
+      3: [
+        'drivingLicenseUrl', 'voidChequeUrl', 'HSTdocumentUrl', 
+        'foodHandlingCertificateUrl', 'articleofIncorporation'
+      ]
     };
     return stageFields[stage] || [];
   }

@@ -183,10 +183,7 @@ class DriverStagedController extends BaseController {
         return this.errorResponse(res, 'Driver not found', 404);
       }
       const {
-        firstName,
-        lastName,
-        middleName,
-        email,
+        
         dateOfBirth,
         cellNumber,
         streetNameNumber,

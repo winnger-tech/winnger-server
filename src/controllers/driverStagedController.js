@@ -648,6 +648,11 @@ class DriverStagedController extends BaseController {
         title: "Banking & Consent",
         description: "Complete banking information and consent forms",
         requiredFields: ["bankingInfo", "consentAndDeclarations"]
+      },
+      5: {
+        title: "Registration Complete",
+        description: "Your registration is complete and ready for review",
+        requiredFields: []
       }
     };
 

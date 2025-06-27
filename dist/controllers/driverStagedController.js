@@ -20,6 +20,7 @@ class DriverStagedController extends BaseController {
     this.updateStage3 = this.updateStage3.bind(this);
     this.updateStage4 = this.updateStage4.bind(this);
     this.updateStage5 = this.updateStage5.bind(this);
+    
   }
 
   // Stage 1: Initial registration with basic info only
@@ -318,6 +319,7 @@ class DriverStagedController extends BaseController {
       if (!driver) {
         return this.errorResponse(res, 'Driver not found', 404);
       }
+      
 
       // Ensure previous stage is completed
       if (driver.registrationStage < 3) {
@@ -385,6 +387,8 @@ class DriverStagedController extends BaseController {
 
   // Update Stage 4: Banking Information
   async updateStage4(req, res) {
+    
+      console.log("test3",req.body)
     try {
       const driver = await Driver.findByPk(req.user.id);
       if (!driver) {
@@ -396,36 +400,26 @@ class DriverStagedController extends BaseController {
         return this.errorResponse(res, 'Please complete Stage 3 first', 400);
       }
       const {
-        bankingInfo,
+        accountNumber,
         transitNumber,
         institutionNumber
       } = req.body;
+x
+      console.log("req.bodu",req.body)
+
+      
 
       // Validate required fields for stage 4
-      const requiredFields = ['bankingInfo', 'transitNumber'];
+      const requiredFields = ['accountNumber', 'transitNumber'];
       const missingFields = requiredFields.filter(field => !req.body[field]);
       if (missingFields.length > 0) {
         return this.errorResponse(res, `Missing required fields: ${missingFields.join(', ')}`, 400);
       }
 
-      // Parse banking info if it's a string
-      let parsedBankingInfo = bankingInfo;
-      if (typeof bankingInfo === 'string') {
-        try {
-          parsedBankingInfo = JSON.parse(bankingInfo);
-        } catch (error) {
-          return this.errorResponse(res, 'Invalid banking information format', 400);
-        }
-      }
+     
 
-      // Validate banking info structure
-      if (!parsedBankingInfo.accountNumber || !parsedBankingInfo.accountHolderName) {
-        return this.errorResponse(res, 'Banking information must include account number and account holder name', 400);
-      }
-
-      // Update driver with stage 4 data
       await driver.update({
-        bankingInfo: parsedBankingInfo,
+        accountNumber,
         transitNumber,
         institutionNumber,
         registrationStage: 5
@@ -551,7 +545,7 @@ class DriverStagedController extends BaseController {
 
       // Stage 5: Banking and consent
       else if (currentStage === 4) {
-        const requiredFields = ['bankingInfo', 'consentAndDeclarations'];
+        const requiredFields = [ 'consentAndDeclarations'];
         const hasAllFields = requiredFields.every(field => updateData[field]);
         if (hasAllFields) {
           nextStage = 5;
@@ -611,7 +605,7 @@ class DriverStagedController extends BaseController {
         5: {
           title: "Banking & Consent",
           description: "Complete banking information and consent forms",
-          fields: ["bankingInfo", "consentAndDeclarations"]
+          fields: [ "consentAndDeclarations"]
         }
       };
       this.successResponse(res, {
@@ -645,7 +639,7 @@ class DriverStagedController extends BaseController {
       4: {
         title: "Banking & Consent",
         description: "Complete banking information and consent forms",
-        requiredFields: ["bankingInfo", "consentAndDeclarations"]
+        requiredFields: [ "consentAndDeclarations"]
       }
     };
 
@@ -728,7 +722,7 @@ class DriverStagedController extends BaseController {
         5: {
           title: "Banking & Consent",
           description: "Complete banking information and consent forms",
-          fields: ["bankingInfo", "consentAndDeclarations"],
+          fields: ["consentAndDeclarations"],
           completed: driver.registrationStage > 4,
           isCurrentStage: driver.registrationStage === 5
         }
@@ -839,7 +833,7 @@ class DriverStagedController extends BaseController {
       1: ['firstName', 'lastName', 'middleName', 'email', 'dateOfBirth', 'cellNumber', 'streetNameNumber', 'appUniteNumber', 'city', 'province', 'postalCode', 'profilePhotoUrl'],
       2: ['vehicleType', 'vehicleMake', 'vehicleModel', 'deliveryType', 'yearOfManufacture', 'vehicleColor', 'vehicleLicensePlate', 'driversLicenseClass', 'vehicleInsuranceUrl', 'vehicleRegistrationUrl'],
       3: ['driversLicenseFrontUrl', 'driversLicenseBackUrl', 'vehicleRegistrationUrl', 'vehicleInsuranceUrl', 'drivingAbstractUrl', 'drivingAbstractDate', 'workEligibilityUrl', 'workEligibilityType', 'sinCardUrl', 'sinCardNumber'],
-      4: ['bankingInfo', 'transitNumber', 'institutionNumber'],
+      4: ['transitNumber', 'institutionNumber'],
       5: ['consentAndDeclarations']
     };
     return stageFields[stage] || [];

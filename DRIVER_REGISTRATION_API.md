@@ -1,6 +1,331 @@
 # Driver Registration API Documentation
 
-**Base URL:** `http://localhost:5001/api/drivers-staged`
+## Overview
+The driver registration system allows drivers to register in a single request with all required information, including document URLs uploaded from the frontend. **Validation is handled by the frontend** - the backend accepts all data as provided.
+
+## Base URL
+```
+POST /api/drivers/register
+```
+
+## Authentication
+- No authentication required for registration
+- JWT tokens are returned upon successful registration for subsequent requests
+
+---
+
+## Driver Registration
+
+### Endpoint
+```
+POST /api/drivers/register
+```
+
+### Description
+Creates a new driver account with all provided information including document URLs. **No backend validation is performed** - all validation should be handled by the frontend.
+
+### Request Body
+```json
+{
+  "email": "john.doe@driver.com",
+  "password": "SecurePassword123!",
+  "firstName": "John",
+  "middleName": "Michael",
+  "lastName": "Doe",
+  "dateOfBirth": "1990-05-15",
+  "cellNumber": "+1-234-567-8900",
+  "streetNameNumber": "123 Main Street",
+  "appUniteNumber": "Apt 4B",
+  "city": "Toronto",
+  "province": "ON",
+  "postalCode": "M5V 3A8",
+  "vehicleType": "Car",
+  "vehicleMake": "Toyota",
+  "vehicleModel": "Camry",
+  "deliveryType": "Meals",
+  "yearOfManufacture": 2020,
+  "vehicleColor": "Silver",
+  "vehicleLicensePlate": "ABC123",
+  "driversLicenseClass": "G",
+  "profilePhotoUrl": "https://example.com/photos/profile.jpg",
+  "driversLicenseFrontUrl": "https://example.com/documents/license-front.jpg",
+  "driversLicenseBackUrl": "https://example.com/documents/license-back.jpg",
+  "vehicleRegistrationUrl": "https://example.com/documents/registration.pdf",
+  "vehicleInsuranceUrl": "https://example.com/documents/insurance.pdf",
+  "drivingAbstractUrl": "https://example.com/documents/abstract.pdf",
+  "drivingAbstractDate": "2024-01-15",
+  "workEligibilityUrl": "https://example.com/documents/work-permit.pdf",
+  "workEligibilityType": "work_permit",
+  "sinCardUrl": "https://example.com/documents/sin-card.jpg",
+  "sinNumber": "123-456-789",
+  "criminalBackgroundCheckUrl": "https://example.com/documents/background-check.pdf",
+  "criminalBackgroundCheckDate": "2024-01-20",
+  "bankingInfo": {
+    "accountNumber": "1234567890",
+    "accountHolderName": "John Doe",
+    "bankName": "Royal Bank of Canada"
+  },
+  "consentAndDeclarations": {
+    "backgroundCheck": true,
+    "termsOfService": true,
+    "privacyPolicy": true,
+    "dataCollection": true
+  }
+}
+```
+
+### Available Fields
+
+#### Basic Information
+- `email`: Driver's email address (must be unique)
+- `password`: Driver's password
+- `firstName`: Driver's first name
+- `middleName`: Driver's middle name (optional)
+- `lastName`: Driver's last name
+
+#### Personal Details
+- `dateOfBirth`: Date of birth (any format)
+- `cellNumber`: Phone number (any format)
+- `streetNameNumber`: Street address
+- `appUniteNumber`: Apartment/unit number (optional)
+- `city`: City name
+- `province`: Province/state
+- `postalCode`: Postal/zip code
+
+#### Vehicle Information
+- `vehicleType`: Vehicle type (any value)
+- `vehicleMake`: Vehicle manufacturer
+- `vehicleModel`: Vehicle model
+- `deliveryType`: Delivery type (defaults to 'Meals' if not provided)
+- `yearOfManufacture`: Year the vehicle was manufactured
+- `vehicleColor`: Vehicle color
+- `vehicleLicensePlate`: License plate number
+- `driversLicenseClass`: Driver's license class
+
+#### Document URLs
+- `profilePhotoUrl`: URL to profile photo
+- `driversLicenseFrontUrl`: URL to front of driver's license
+- `driversLicenseBackUrl`: URL to back of driver's license
+- `vehicleRegistrationUrl`: URL to vehicle registration document
+- `vehicleInsuranceUrl`: URL to vehicle insurance document
+- `drivingAbstractUrl`: URL to driving abstract document
+- `workEligibilityUrl`: URL to work eligibility document
+- `sinCardUrl`: URL to SIN card document
+- `criminalBackgroundCheckUrl`: URL to criminal background check document
+
+#### Additional Information
+- `drivingAbstractDate`: Date of driving abstract (any format)
+- `workEligibilityType`: Work eligibility type (any value)
+- `sinNumber`: SIN card number (any format)
+- `criminalBackgroundCheckDate`: Date of background check (any format)
+
+#### Banking Information
+- `bankingInfo`: Object or string containing banking information
+  - `accountNumber`: Bank account number
+  - `accountHolderName`: Name on the account
+  - `bankName`: Bank name (optional)
+
+#### Consent and Declarations
+- `consentAndDeclarations`: Object or string containing consent information
+  - `backgroundCheck`: Consent for background check (boolean)
+  - `termsOfService`: Agreement to terms of service (boolean)
+  - `privacyPolicy`: Agreement to privacy policy (boolean)
+  - `dataCollection`: Consent for data collection (boolean)
+
+### Response
+```json
+{
+  "success": true,
+  "data": {
+    "driverId": "uuid",
+    "email": "john.doe@driver.com",
+    "firstName": "John",
+    "lastName": "Doe",
+    "registrationStage": 5,
+    "isRegistrationComplete": true,
+    "paymentStatus": "pending",
+    "status": "pending"
+  },
+  "message": "Driver registration submitted successfully. Please complete payment."
+}
+```
+
+---
+
+## Payment Confirmation
+
+### Endpoint
+```
+POST /api/drivers/confirm-payment
+```
+
+### Description
+Confirms payment for driver registration.
+
+### Request Body
+```json
+{
+  "driverId": "uuid",
+  "paymentIntentId": "pi_1234567890"
+}
+```
+
+### Response
+```json
+{
+  "success": true,
+  "message": "Payment confirmed successfully",
+  "paymentStatus": "completed"
+}
+```
+
+---
+
+## Registration Status Check
+
+### Endpoint
+```
+GET /api/drivers/:driverId/status
+```
+
+### Description
+Checks the registration status of a driver.
+
+### Response
+```json
+{
+  "success": true,
+  "data": {
+    "isComplete": false,
+    "paymentStatus": "pending",
+    "backgroundCheckStatus": "pending",
+    "adminApprovalStatus": "pending",
+    "missingRequirements": [
+      "Payment not completed",
+      "Admin approval pending"
+    ]
+  }
+}
+```
+
+---
+
+## Get Driver by ID
+
+### Endpoint
+```
+GET /api/drivers/:driverId
+```
+
+### Description
+Retrieves driver information by ID (excludes sensitive data).
+
+### Response
+```json
+{
+  "success": true,
+  "data": {
+    "id": "uuid",
+    "email": "john.doe@driver.com",
+    "firstName": "John",
+    "lastName": "Doe",
+    "dateOfBirth": "1990-05-15",
+    "cellNumber": "+1-234-567-8900",
+    "city": "Toronto",
+    "province": "ON",
+    "vehicleType": "Car",
+    "vehicleMake": "Toyota",
+    "vehicleModel": "Camry",
+    "status": "pending",
+    "paymentStatus": "pending",
+    "registrationStage": 5,
+    "isRegistrationComplete": true
+  }
+}
+```
+
+---
+
+## Error Responses
+
+### Duplicate Email
+```json
+{
+  "success": false,
+  "message": "Driver with this email already exists"
+}
+```
+
+### Server Error
+```json
+{
+  "success": false,
+  "message": "Failed to register driver"
+}
+```
+
+---
+
+## Important Notes
+
+### No Backend Validation
+- **All validation is handled by the frontend**
+- The backend accepts any data format provided
+- No field format validation is performed
+- No required field validation is performed
+- No enum value validation is performed
+
+### JSON Field Handling
+- `bankingInfo` and `consentAndDeclarations` can be sent as objects or strings
+- If sent as strings, the backend will attempt to parse them as JSON
+- If parsing fails, the original string value will be used
+
+### Database Constraints
+- The only validation performed is database-level constraints
+- Email must be unique (database constraint)
+- Required fields in the database model must be provided
+- Enum fields must match database enum values
+
+---
+
+## Registration Flow
+
+1. **Frontend Validation**: Validate all fields client-side
+2. **Document Upload**: Upload all documents to cloud storage
+3. **Registration Request**: Send registration with document URLs
+4. **Driver Creation**: Backend creates driver record with provided data
+5. **Payment**: Complete payment process
+6. **Background Check**: Optional background check initiation
+7. **Admin Review**: Admin reviews and approves/rejects
+8. **Complete**: Driver is fully registered and active
+
+## Status Tracking
+
+- `registrationStage`: Always 5 for complete registration
+- `isRegistrationComplete`: Always true for complete registration
+- `paymentStatus`: 'pending' → 'completed'
+- `status`: 'pending' → 'approved'/'rejected'
+- `backgroundCheckStatus`: 'pending' → 'in_progress' → 'completed'/'failed'
+
+## Security Notes
+
+- Passwords are hashed using bcrypt
+- All sensitive data is stored as provided
+- Document URLs should be validated by frontend for security
+- SIN numbers and banking information are stored as provided
+- No file upload handling in backend - all documents come as URLs
+- JWT tokens expire based on configuration
+
+## Frontend Implementation Notes
+
+1. **Client-side Validation**: Implement comprehensive validation
+2. **Document Upload**: Upload documents to cloud storage first
+3. **URL Collection**: Collect all document URLs
+4. **Form Validation**: Validate all required fields and formats
+5. **Registration Request**: Send complete registration data
+6. **Payment Integration**: Integrate with payment gateway
+7. **Status Monitoring**: Monitor registration status
+8. **Error Handling**: Handle server errors and database constraints
 
 ## Table of Contents
 - [Authentication](#authentication)

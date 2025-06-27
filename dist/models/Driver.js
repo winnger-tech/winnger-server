@@ -152,8 +152,16 @@ module.exports = sequelize => {
       type: DataTypes.STRING,
       allowNull: false
     },
-    bankingInfo: {
-      type: DataTypes.JSONB,
+    accountNumber: {
+      type: DataTypes.STRING
+    },
+    backgroundCheckStatus: {
+      type: DataTypes.ENUM('pending', 'in_progress', 'completed', 'failed'),
+      defaultValue: 'pending',
+      allowNull: false
+    },
+    certnApplicantId: {
+      type: DataTypes.STRING,
       allowNull: false
     },
     backgroundCheckStatus: {

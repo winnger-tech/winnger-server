@@ -65,7 +65,6 @@ const driverLoginRules = [
 const driverUpdateRules = [
   // These are optional since we validate based on stage
   body('email').optional().isEmail().withMessage('Valid email is required'),
-  body('cellNumber').optional().matches(/^\+1-\d{3}-\d{3}-\d{4}$/).withMessage('Valid phone number format required'),
   body('postalCode').optional().matches(/^[A-Za-z]\d[A-Za-z][ -]?\d[A-Za-z]\d$/).withMessage('Valid postal code required'),
   body('province').optional().isIn(['AB', 'BC', 'MB', 'NB', 'NL', 'NS', 'NT', 'NU', 'ON', 'PE', 'QC', 'SK', 'YT']).withMessage('Valid province required')
 ];
@@ -96,7 +95,7 @@ const restaurantUpdateRules = [
   body('HSTNumber').optional().isString().withMessage('HST number must be a string'),
   body('bankingInfo.transitNumber').optional().matches(/^\d{5}$/).withMessage('Transit number must be 5 digits'),
   body('bankingInfo.institutionNumber').optional().matches(/^\d{3}$/).withMessage('Institution number must be 3 digits'),
-  body('bankingInfo.accountNumber').optional().matches(/^\d{7,12}$/).withMessage('Account number must be 7-12 digits'),
+  // body('bankingInfo.accountNumber').optional().matches(/^\d{7,12}$/).withMessage('Account number must be 7-12 digits'),
   body('drivingLicenseUrl').optional().isURL().withMessage('Valid URL required for driving license'),
   body('voidChequeUrl').optional().isURL().withMessage('Valid URL required for void cheque'),
   body('HSTdocumentUrl').optional().isURL().withMessage('Valid URL required for HST document'),

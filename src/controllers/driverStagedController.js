@@ -392,26 +392,41 @@ class DriverStagedController extends BaseController {
 
       const {
         bankingInfo,
+        accountNumber,
+        accountHolderName,
         transitNumber,
-        institutionNumber
+        institutionNumber,
+        consentAndDeclarations
       } = req.body;
 
       // Validate required fields for stage 4
-      const requiredFields = ['bankingInfo', 'transitNumber'];
+      const requiredFields = ['accountNumber', 'accountHolderName', 'transitNumber'];
       const missingFields = requiredFields.filter(field => !req.body[field]);
       
       if (missingFields.length > 0) {
         return this.errorResponse(res, `Missing required fields: ${missingFields.join(', ')}`, 400);
       }
 
-      // Parse banking info if it's a string
+      // Handle banking info - either from bankingInfo object or flat fields
       let parsedBankingInfo = bankingInfo;
+      
+      // If bankingInfo is provided as a string, parse it
       if (typeof bankingInfo === 'string') {
         try {
           parsedBankingInfo = JSON.parse(bankingInfo);
         } catch (error) {
           return this.errorResponse(res, 'Invalid banking information format', 400);
         }
+      }
+      
+      // If bankingInfo is not provided or doesn't have required fields, use flat fields
+      if (!parsedBankingInfo || !parsedBankingInfo.accountNumber || !parsedBankingInfo.accountHolderName) {
+        parsedBankingInfo = {
+          accountNumber,
+          accountHolderName,
+          transitNumber,
+          institutionNumber
+        };
       }
 
       // Validate banking info structure

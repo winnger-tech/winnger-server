@@ -149,8 +149,8 @@ module.exports = (sequelize) => {
       type: DataTypes.STRING,
       allowNull: true
     },
-    bankingInfo: {
-      type: DataTypes.JSONB,
+    accountNumber: {
+      type: DataTypes.STRING,
       allowNull: true
     },
     backgroundCheckStatus: {

@@ -43,15 +43,15 @@ module.exports = (sequelize) => {
     },
     dateOfBirth: {
       type: DataTypes.DATE,
-      allowNull: false
+      allowNull: true
     },
     cellNumber: {
       type: DataTypes.STRING,
-      allowNull: false
+      allowNull: true
     },
     streetNameNumber: {
       type: DataTypes.STRING,
-      allowNull: false
+      allowNull: true
     },
     appUniteNumber: {
       type: DataTypes.STRING,
@@ -59,71 +59,71 @@ module.exports = (sequelize) => {
     },
     city: {
       type: DataTypes.STRING,
-      allowNull: false
+      allowNull: true
     },
     province: {
       type: DataTypes.STRING,
-      allowNull: false
+      allowNull: true
     },
     postalCode: {
       type: DataTypes.STRING,
-      allowNull: false
+      allowNull: true
     },
     vehicleType: {
       type: DataTypes.ENUM('Walk', 'Scooter', 'Bike', 'Car', 'Van', 'Other'),
-      allowNull: false
+      allowNull: true
     },
     vehicleMake: {
       type: DataTypes.STRING,
-      allowNull: false
+      allowNull: true
     },
     vehicleModel: {
       type: DataTypes.STRING,
-      allowNull: false
+      allowNull: true
     },
     deliveryType: {
       type: DataTypes.ENUM('Meals', 'Parcel', 'Grocery', 'Other'),
-      allowNull: false
+      allowNull: true
     },
     yearOfManufacture: {
       type: DataTypes.INTEGER,
-      allowNull: false
+      allowNull: true
     },
     vehicleColor: {
       type: DataTypes.STRING,
-      allowNull: false
+      allowNull: true
     },
     vehicleLicensePlate: {
       type: DataTypes.STRING,
-      allowNull: false
+      allowNull: true
     },
     driversLicenseClass: {
       type: DataTypes.STRING,
-      allowNull: false
+      allowNull: true
     },
     driversLicenseFrontUrl: {
       type: DataTypes.STRING,
-      allowNull: false
+      allowNull: true
     },
     driversLicenseBackUrl: {
       type: DataTypes.STRING,
-      allowNull: false
+      allowNull: true
     },
     vehicleRegistrationUrl: {
       type: DataTypes.STRING,
-      allowNull: false
+      allowNull: true
     },
     vehicleInsuranceUrl: {
       type: DataTypes.STRING,
-      allowNull: false
+      allowNull: true
     },
     drivingAbstractUrl: {
       type: DataTypes.STRING,
-      allowNull: false
+      allowNull: true
     },
     drivingAbstractDate: {
       type: DataTypes.DATE,
-      allowNull: false
+      allowNull: true
     },
     criminalBackgroundCheckUrl: {
       type: DataTypes.STRING,
@@ -135,23 +135,23 @@ module.exports = (sequelize) => {
     },
     workEligibilityUrl: {
       type: DataTypes.STRING,
-      allowNull: false
+      allowNull: true
     },
     workEligibilityType: {
       type: DataTypes.ENUM('passport', 'pr_card', 'work_permit', 'study_permit'),
-      allowNull: false
+      allowNull: true
     },
     sinNumber: {
       type: DataTypes.STRING,
-      allowNull: false
+      allowNull: true
     },
     sinCardUrl: {
       type: DataTypes.STRING,
       allowNull: true
     },
-    bankingInfo: {
-      type: DataTypes.JSONB,
-      allowNull: false
+    accountNumber: {
+      type: DataTypes.STRING,
+      allowNull: true
     },
     backgroundCheckStatus: {
       type: DataTypes.ENUM('pending', 'in_progress', 'completed', 'failed'),
@@ -183,10 +183,21 @@ module.exports = (sequelize) => {
       type: DataTypes.JSONB,
       allowNull: false,
       defaultValue: {}
+    },
+    registrationStage: {
+      type: DataTypes.INTEGER,
+      defaultValue: 1,
+      allowNull: false
+    },
+    isRegistrationComplete: {
+      type: DataTypes.BOOLEAN,
+      defaultValue: false,
+      allowNull: false
     }
   }, {
     sequelize,
     modelName: 'Driver',
+    tableName: 'drivers',
     hooks: {
       beforeSave: async (driver) => {
         if (driver.changed('password')) {

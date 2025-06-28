@@ -76,7 +76,7 @@ const templates = {
 const sendEmail = async (to, template, data) => {
   try {
     const { subject, html } = templates[template](data);
-    await transporter.sendMail({
+    const info = await transporter.sendMail({
       from: process.env.SMTP_FROM,
       to,
       subject,
@@ -85,6 +85,55 @@ const sendEmail = async (to, template, data) => {
     return info;
   } catch (error) {
     throw new Error(`Error sending email: ${error.message}`);
+  }
+};
+
+// Send payment receipt email
+const sendPaymentReceipt = async (data) => {
+  try {
+    const { subject, html } = templates.paymentReceipt(data);
+    await transporter.sendMail({
+      from: process.env.SMTP_FROM,
+      to: data.email,
+      subject,
+      html
+    });
+    return { success: true };
+  } catch (error) {
+    console.error('Failed to send payment receipt:', error);
+    return { success: false, error: error.message };
+  }
+};
+
+// Send payment failed notification
+const sendPaymentFailed = async (data) => {
+  try {
+    const subject = 'Payment Failed - PR Launch Registration';
+    const html = `
+      <h2>Payment Failed</h2>
+      <p>Dear ${data.name},</p>
+      <p>We're sorry, but your payment has failed. Here are the details:</p>
+      <ul>
+        <li>Registration Type: ${data.type}</li>
+        <li>Amount: $${data.amount} USD</li>
+        <li>Transaction ID: ${data.transactionId}</li>
+        <li>Reason: ${data.reason}</li>
+        <li>Date: ${new Date().toLocaleString()}</li>
+      </ul>
+      <p>Please try again or contact our support team if you continue to experience issues.</p>
+      <p>You can retry your payment by visiting your registration dashboard.</p>
+    `;
+    
+    await transporter.sendMail({
+      from: process.env.SMTP_FROM,
+      to: data.email,
+      subject,
+      html
+    });
+    return { success: true };
+  } catch (error) {
+    console.error('Failed to send payment failed notification:', error);
+    return { success: false, error: error.message };
   }
 };
 
@@ -143,5 +192,7 @@ const sendVerificationEmail = async (email) => {
 module.exports = {
   sendEmail,
   sendVerificationEmail,
-  emailTemplates
+  emailTemplates,
+  sendPaymentReceipt,
+  sendPaymentFailed
 };

@@ -87,6 +87,16 @@ exports.getDashboardStats = async (req, res) => {
           where: {
             paymentStatus: 'completed'
           }
+        }),
+        registrationComplete: await Driver.count({
+          where: {
+            isRegistrationComplete: true
+          }
+        }),
+        registrationInProgress: await Driver.count({
+          where: {
+            isRegistrationComplete: false
+          }
         })
       },
       restaurants: {
@@ -106,9 +116,19 @@ exports.getDashboardStats = async (req, res) => {
             status: 'rejected'
           }
         }),
-        paymentCompleted: await Restaurant.count({
+        suspended: await Restaurant.count({
           where: {
-            paymentStatus: 'completed'
+            status: 'suspended'
+          }
+        }),
+        registrationComplete: await Restaurant.count({
+          where: {
+            isRegistrationComplete: true
+          }
+        }),
+        registrationInProgress: await Restaurant.count({
+          where: {
+            isRegistrationComplete: false
           }
         })
       }
@@ -130,13 +150,23 @@ exports.getAllDrivers = async (req, res) => {
     const limit = parseInt(req.query.limit, 10) || 10;
     const offset = (page - 1) * limit;
     const where = {};
+
+    // Filter by status
     if (req.query.status) where.status = req.query.status;
     if (req.query.paymentStatus) where.paymentStatus = req.query.paymentStatus;
+    if (req.query.registrationComplete !== undefined) {
+      where.isRegistrationComplete = req.query.registrationComplete === 'true';
+    }
+    if (req.query.registrationStage) where.registrationStage = parseInt(req.query.registrationStage);
+
+    // Date range filter
     if (req.query.startDate && req.query.endDate) {
       where.createdAt = {
         [Op.between]: [new Date(req.query.startDate), new Date(req.query.endDate)]
       };
     }
+
+    // Search functionality
     if (req.query.search) {
       where[Op.or] = [{
         firstName: {
@@ -189,13 +219,22 @@ exports.getAllRestaurants = async (req, res) => {
     const limit = parseInt(req.query.limit, 10) || 10;
     const offset = (page - 1) * limit;
     const where = {};
+
+    // Filter by status
     if (req.query.status) where.status = req.query.status;
-    if (req.query.paymentStatus) where.paymentStatus = req.query.paymentStatus;
+    if (req.query.registrationComplete !== undefined) {
+      where.isRegistrationComplete = req.query.registrationComplete === 'true';
+    }
+    if (req.query.currentStep) where.currentStep = parseInt(req.query.currentStep);
+
+    // Date range filter
     if (req.query.startDate && req.query.endDate) {
       where.createdAt = {
         [Op.between]: [new Date(req.query.startDate), new Date(req.query.endDate)]
       };
     }
+
+    // Search functionality
     if (req.query.search) {
       where[Op.or] = [{
         restaurantName: {
@@ -213,6 +252,10 @@ exports.getAllRestaurants = async (req, res) => {
         phone: {
           [Op.iLike]: `%${req.query.search}%`
         }
+      }, {
+        businessEmail: {
+          [Op.iLike]: `%${req.query.search}%`
+        }
       }];
     }
     const total = await Restaurant.count({
@@ -227,13 +270,43 @@ exports.getAllRestaurants = async (req, res) => {
       offset,
       order: [['createdAt', 'DESC']]
     });
+
+    // Add document URLs and computed fields for each restaurant
+    const restaurantsWithDocs = restaurants.map(restaurant => {
+      const restaurantData = restaurant.toJSON();
+
+      // Add all document URLs
+      restaurantData.documents = {
+        drivingLicense: restaurant.drivingLicenseUrl,
+        voidCheque: restaurant.voidChequeUrl,
+        hstDocument: restaurant.HSTdocumentUrl,
+        foodHandlingCertificate: restaurant.foodHandlingCertificateUrl,
+        articleOfIncorporation: restaurant.articleofIncorporation
+      };
+
+      // Add document expiry dates
+      restaurantData.documentExpiryDates = {
+        articleOfIncorporation: restaurant.articleofIncorporationExpiryDate,
+        foodSafetyCertificate: restaurant.foodSafetyCertificateExpiryDate
+      };
+
+      // Add registration progress
+      restaurantData.registrationProgress = {
+        currentStep: restaurant.currentStep,
+        totalSteps: 5,
+        isComplete: restaurant.isRegistrationComplete,
+        completedSteps: restaurant.completedSteps || [],
+        progressPercentage: Math.round(restaurant.currentStep / 5 * 100)
+      };
+      return restaurantData;
+    });
     res.status(200).json({
       success: true,
       total,
-      count: restaurants.length,
+      count: restaurantsWithDocs.length,
       totalPages: Math.ceil(total / limit),
       currentPage: page,
-      data: restaurants
+      data: restaurantsWithDocs
     });
   } catch (error) {
     res.status(500).json({
@@ -260,9 +333,83 @@ exports.getDriverById = async (req, res) => {
         message: 'Driver not found'
       });
     }
+
+    // Add computed fields for better admin view
+    const driverData = driver.toJSON();
+
+    // Add full name
+    driverData.fullName = `${driver.firstName || ''} ${driver.middleName || ''} ${driver.lastName || ''}`.trim();
+
+    // Add all document URLs
+    driverData.documents = {
+      profilePhoto: driver.profilePhotoUrl || null,
+      driversLicenseFront: driver.driversLicenseFrontUrl || null,
+      driversLicenseBack: driver.driversLicenseBackUrl || null,
+      vehicleRegistration: driver.vehicleRegistrationUrl || null,
+      vehicleInsurance: driver.vehicleInsuranceUrl || null,
+      drivingAbstract: driver.drivingAbstractUrl || null,
+      criminalBackgroundCheck: driver.criminalBackgroundCheckUrl || null,
+      workEligibility: driver.workEligibilityUrl || null,
+      sinCard: driver.sinCardUrl || null
+    };
+
+    // Add document dates
+    driverData.documentDates = {
+      drivingAbstract: driver.drivingAbstractDate || null,
+      criminalBackgroundCheck: driver.criminalBackgroundCheckDate || null
+    };
+
+    // Add vehicle information
+    driverData.vehicle = {
+      type: driver.vehicleType || null,
+      make: driver.vehicleMake || null,
+      model: driver.vehicleModel || null,
+      year: driver.yearOfManufacture || null,
+      color: driver.vehicleColor || null,
+      licensePlate: driver.vehicleLicensePlate || null,
+      licenseClass: driver.driversLicenseClass || null
+    };
+
+    // Add address information
+    driverData.address = {
+      street: driver.streetNameNumber || null,
+      unit: driver.appUniteNumber || null,
+      city: driver.city || null,
+      province: driver.province || null,
+      postalCode: driver.postalCode || null
+    };
+
+    // Add registration progress
+    driverData.registrationProgress = {
+      currentStage: driver.registrationStage,
+      totalStages: 5,
+      // Assuming 5 stages
+      isComplete: driver.isRegistrationComplete,
+      progressPercentage: Math.round(driver.registrationStage / 5 * 100)
+    };
+
+    // Add payment information
+    driverData.payment = {
+      status: driver.paymentStatus || null,
+      stripePaymentIntentId: driver.stripePaymentIntentId || null
+    };
+
+    // Add background check information
+    driverData.backgroundCheck = {
+      status: driver.backgroundCheckStatus || null,
+      certnApplicantId: driver.certnApplicantId || null
+    };
+
+    // Add personal information
+    driverData.personal = {
+      dateOfBirth: driver.dateOfBirth || null,
+      sinNumber: driver.sinNumber || null,
+      workEligibilityType: driver.workEligibilityType || null,
+      accountNumber: driver.accountNumber || null
+    };
     res.status(200).json({
       success: true,
-      data: driver
+      data: driverData
     });
   } catch (error) {
     res.status(500).json({
@@ -289,9 +436,96 @@ exports.getRestaurantById = async (req, res) => {
         message: 'Restaurant not found'
       });
     }
+
+    // Add computed fields for better admin view
+    const restaurantData = restaurant.toJSON();
+
+    // Add all document URLs
+    restaurantData.documents = {
+      drivingLicense: restaurant.drivingLicenseUrl,
+      voidCheque: restaurant.voidChequeUrl,
+      hstDocument: restaurant.HSTdocumentUrl,
+      foodHandlingCertificate: restaurant.foodHandlingCertificateUrl,
+      articleOfIncorporation: restaurant.articleofIncorporation
+    };
+
+    // Add document expiry dates
+    restaurantData.documentExpiryDates = {
+      articleOfIncorporation: restaurant.articleofIncorporationExpiryDate,
+      foodSafetyCertificate: restaurant.foodSafetyCertificateExpiryDate
+    };
+
+    // Add banking information
+    restaurantData.banking = restaurant.bankingInfo || {};
+
+    // Add business information
+    restaurantData.business = {
+      name: restaurant.restaurantName,
+      type: restaurant.businessType,
+      email: restaurant.businessEmail,
+      phone: restaurant.businessPhone,
+      address: restaurant.restaurantAddress,
+      city: restaurant.city,
+      province: restaurant.province,
+      postalCode: restaurant.postalCode
+    };
+
+    // Add owner information
+    restaurantData.owner = {
+      name: restaurant.ownerName,
+      email: restaurant.email,
+      phone: restaurant.phone,
+      address: restaurant.ownerAddress,
+      identificationType: restaurant.identificationType
+    };
+
+    // Add tax information
+    restaurantData.tax = {
+      hstNumber: restaurant.HSTNumber
+    };
+
+    // Add registration progress
+    restaurantData.registrationProgress = {
+      currentStep: restaurant.currentStep,
+      totalSteps: 5,
+      isComplete: restaurant.isRegistrationComplete,
+      completedSteps: restaurant.completedSteps || [],
+      progressPercentage: Math.round(restaurant.currentStep / 5 * 100)
+    };
+
+    // Add payment information
+    restaurantData.payment = {
+      status: restaurant.paymentStatus,
+      stripePaymentIntentId: restaurant.stripePaymentIntentId,
+      stripePaymentMethodId: restaurant.stripePaymentMethodId,
+      pendingPaymentIntentId: restaurant.pendingPaymentIntentId,
+      completedAt: restaurant.paymentCompletedAt
+    };
+
+    // Add review and confirmation information
+    restaurantData.review = {
+      agreedToTerms: restaurant.agreedToTerms,
+      confirmationChecked: restaurant.confirmationChecked,
+      additionalNotes: restaurant.additionalNotes,
+      reviewCompletedAt: restaurant.reviewCompletedAt
+    };
+
+    // Add operating hours
+    restaurantData.operations = {
+      hoursOfOperation: restaurant.hoursOfOperation
+    };
+
+    // Add admin management information
+    restaurantData.admin = {
+      approvedAt: restaurant.approvedAt,
+      approvedBy: restaurant.approvedBy,
+      rejectionReason: restaurant.rejectionReason,
+      notes: restaurant.notes,
+      statusUpdatedAt: restaurant.statusUpdatedAt
+    };
     res.status(200).json({
       success: true,
-      data: restaurant
+      data: restaurantData
     });
   } catch (error) {
     res.status(500).json({
@@ -305,8 +539,16 @@ exports.getRestaurantById = async (req, res) => {
 exports.getAllDriversDetailed = async (req, res) => {
   try {
     const where = {};
+
+    // Filter by status
     if (req.query.status) where.status = req.query.status;
     if (req.query.paymentStatus) where.paymentStatus = req.query.paymentStatus;
+    if (req.query.registrationComplete !== undefined) {
+      where.isRegistrationComplete = req.query.registrationComplete === 'true';
+    }
+    if (req.query.registrationStage) where.registrationStage = parseInt(req.query.registrationStage);
+
+    // Date range filter
     if (req.query.startDate && req.query.endDate) {
       where.createdAt = {
         [Op.between]: [new Date(req.query.startDate), new Date(req.query.endDate)]
@@ -319,10 +561,86 @@ exports.getAllDriversDetailed = async (req, res) => {
       },
       order: [['createdAt', 'DESC']]
     });
+
+    // Add computed fields for each driver
+    const driversWithProgress = drivers.map(driver => {
+      const driverData = driver.toJSON();
+
+      // Add full name
+      driverData.fullName = `${driver.firstName || ''} ${driver.middleName || ''} ${driver.lastName || ''}`.trim();
+
+      // Add all document URLs
+      driverData.documents = {
+        profilePhoto: driver.profilePhotoUrl || null,
+        driversLicenseFront: driver.driversLicenseFrontUrl || null,
+        driversLicenseBack: driver.driversLicenseBackUrl || null,
+        vehicleRegistration: driver.vehicleRegistrationUrl || null,
+        vehicleInsurance: driver.vehicleInsuranceUrl || null,
+        drivingAbstract: driver.drivingAbstractUrl || null,
+        criminalBackgroundCheck: driver.criminalBackgroundCheckUrl || null,
+        workEligibility: driver.workEligibilityUrl || null,
+        sinCard: driver.sinCardUrl || null
+      };
+
+      // Add document dates
+      driverData.documentDates = {
+        drivingAbstract: driver.drivingAbstractDate || null,
+        criminalBackgroundCheck: driver.criminalBackgroundCheckDate || null
+      };
+
+      // Add vehicle information
+      driverData.vehicle = {
+        type: driver.vehicleType || null,
+        make: driver.vehicleMake || null,
+        model: driver.vehicleModel || null,
+        year: driver.yearOfManufacture || null,
+        color: driver.vehicleColor || null,
+        licensePlate: driver.vehicleLicensePlate || null,
+        licenseClass: driver.driversLicenseClass || null
+      };
+
+      // Add address information
+      driverData.address = {
+        street: driver.streetNameNumber || null,
+        unit: driver.appUniteNumber || null,
+        city: driver.city || null,
+        province: driver.province || null,
+        postalCode: driver.postalCode || null
+      };
+
+      // Add registration progress
+      driverData.registrationProgress = {
+        currentStage: driver.registrationStage || 1,
+        totalStages: 5,
+        isComplete: driver.isRegistrationComplete || false,
+        progressPercentage: Math.round((driver.registrationStage || 1) / 5 * 100)
+      };
+
+      // Add payment information
+      driverData.payment = {
+        status: driver.paymentStatus || null,
+        stripePaymentIntentId: driver.stripePaymentIntentId || null
+      };
+
+      // Add background check information
+      driverData.backgroundCheck = {
+        status: driver.backgroundCheckStatus || null,
+        certnApplicantId: driver.certnApplicantId || null
+      };
+
+      // Add personal information
+      driverData.personal = {
+        dateOfBirth: driver.dateOfBirth || null,
+        sinNumber: driver.sinNumber || null,
+        workEligibilityType: driver.workEligibilityType || null,
+        accountNumber: driver.accountNumber || null
+      };
+      return driverData;
+    });
     res.status(200).json({
       success: true,
-      count: drivers.length,
-      data: drivers
+      count: driversWithProgress.length,
+      data: driversWithProgress
     });
   } catch (error) {
     res.status(500).json({
@@ -336,8 +654,15 @@ exports.getAllDriversDetailed = async (req, res) => {
 exports.getAllRestaurantsDetailed = async (req, res) => {
   try {
     const where = {};
+
+    // Filter by status
     if (req.query.status) where.status = req.query.status;
-    if (req.query.paymentStatus) where.paymentStatus = req.query.paymentStatus;
+    if (req.query.registrationComplete !== undefined) {
+      where.isRegistrationComplete = req.query.registrationComplete === 'true';
+    }
+    if (req.query.currentStep) where.currentStep = parseInt(req.query.currentStep);
+
+    // Date range filter
     if (req.query.startDate && req.query.endDate) {
       where.createdAt = {
         [Op.between]: [new Date(req.query.startDate), new Date(req.query.endDate)]
@@ -350,10 +675,100 @@ exports.getAllRestaurantsDetailed = async (req, res) => {
       },
       order: [['createdAt', 'DESC']]
     });
+
+    // Add computed fields for each restaurant
+    const restaurantsWithProgress = restaurants.map(restaurant => {
+      const restaurantData = restaurant.toJSON();
+
+      // Add all document URLs
+      restaurantData.documents = {
+        drivingLicense: restaurant.drivingLicenseUrl,
+        voidCheque: restaurant.voidChequeUrl,
+        hstDocument: restaurant.HSTdocumentUrl,
+        foodHandlingCertificate: restaurant.foodHandlingCertificateUrl,
+        articleOfIncorporation: restaurant.articleofIncorporation
+      };
+
+      // Add document expiry dates
+      restaurantData.documentExpiryDates = {
+        articleOfIncorporation: restaurant.articleofIncorporationExpiryDate,
+        foodSafetyCertificate: restaurant.foodSafetyCertificateExpiryDate
+      };
+
+      // Add banking information
+      restaurantData.banking = restaurant.bankingInfo || {};
+
+      // Add business information
+      restaurantData.business = {
+        name: restaurant.restaurantName,
+        type: restaurant.businessType,
+        email: restaurant.businessEmail,
+        phone: restaurant.businessPhone,
+        address: restaurant.restaurantAddress,
+        city: restaurant.city,
+        province: restaurant.province,
+        postalCode: restaurant.postalCode
+      };
+
+      // Add owner information
+      restaurantData.owner = {
+        name: restaurant.ownerName,
+        email: restaurant.email,
+        phone: restaurant.phone,
+        address: restaurant.ownerAddress,
+        identificationType: restaurant.identificationType
+      };
+
+      // Add tax information
+      restaurantData.tax = {
+        hstNumber: restaurant.HSTNumber
+      };
+
+      // Add registration progress
+      restaurantData.registrationProgress = {
+        currentStep: restaurant.currentStep,
+        totalSteps: 5,
+        isComplete: restaurant.isRegistrationComplete,
+        completedSteps: restaurant.completedSteps || [],
+        progressPercentage: Math.round(restaurant.currentStep / 5 * 100)
+      };
+
+      // Add payment information
+      restaurantData.payment = {
+        status: restaurant.paymentStatus,
+        stripePaymentIntentId: restaurant.stripePaymentIntentId,
+        stripePaymentMethodId: restaurant.stripePaymentMethodId,
+        pendingPaymentIntentId: restaurant.pendingPaymentIntentId,
+        completedAt: restaurant.paymentCompletedAt
+      };
+
+      // Add review and confirmation information
+      restaurantData.review = {
+        agreedToTerms: restaurant.agreedToTerms,
+        confirmationChecked: restaurant.confirmationChecked,
+        additionalNotes: restaurant.additionalNotes,
+        reviewCompletedAt: restaurant.reviewCompletedAt
+      };
+
+      // Add operating hours
+      restaurantData.operations = {
+        hoursOfOperation: restaurant.hoursOfOperation
+      };
+
+      // Add admin management information
+      restaurantData.admin = {
+        approvedAt: restaurant.approvedAt,
+        approvedBy: restaurant.approvedBy,
+        rejectionReason: restaurant.rejectionReason,
+        notes: restaurant.notes,
+        statusUpdatedAt: restaurant.statusUpdatedAt
+      };
+      return restaurantData;
+    });
     res.status(200).json({
       success: true,
-      count: restaurants.length,
-      data: restaurants
+      count: restaurantsWithProgress.length,
+      data: restaurantsWithProgress
     });
   } catch (error) {
     res.status(500).json({
@@ -406,7 +821,8 @@ exports.updateRestaurantStatus = async (req, res) => {
   try {
     const {
       status,
-      remarks
+      remarks,
+      notes
     } = req.body;
     const restaurant = await Restaurant.findByPk(req.params.id);
     if (!restaurant) return res.status(404).json({
@@ -417,6 +833,15 @@ exports.updateRestaurantStatus = async (req, res) => {
     restaurant.status = status;
     if (remarks) {
       restaurant.rejectionReason = remarks;
+    }
+    if (notes) {
+      restaurant.notes = notes;
+    }
+
+    // Set approval details if status is approved
+    if (status === 'approved') {
+      restaurant.approvedAt = new Date();
+      restaurant.approvedBy = req.admin.id;
     }
     await restaurant.save();
     await sendEmail({
@@ -434,6 +859,9 @@ exports.updateRestaurantStatus = async (req, res) => {
         previousStatus,
         currentStatus: restaurant.status,
         rejectionReason: restaurant.rejectionReason,
+        notes: restaurant.notes,
+        approvedAt: restaurant.approvedAt,
+        approvedBy: restaurant.approvedBy,
         updatedAt: restaurant.updatedAt
       }
     });
@@ -452,7 +880,8 @@ exports.exportData = async (req, res) => {
       status,
       paymentStatus,
       startDate,
-      endDate
+      endDate,
+      registrationComplete
     } = req.query;
     if (!['drivers', 'restaurants'].includes(type)) return res.status(400).json({
       success: false,
@@ -461,7 +890,12 @@ exports.exportData = async (req, res) => {
     const Model = type === 'drivers' ? Driver : Restaurant;
     const where = {};
     if (status) where.status = status;
-    if (paymentStatus) where.paymentStatus = paymentStatus;
+    if (registrationComplete !== undefined) {
+      where.isRegistrationComplete = registrationComplete === 'true';
+    }
+
+    // Only apply payment status filter for drivers
+    if (type === 'drivers' && paymentStatus) where.paymentStatus = paymentStatus;
     if (startDate && endDate) where.createdAt = {
       [Op.between]: [new Date(startDate), new Date(endDate)]
     };
@@ -471,23 +905,48 @@ exports.exportData = async (req, res) => {
         exclude: ['password']
       }
     });
-    const formatted = data.map(item => ({
-      ID: item.id,
-      Name: item.firstName ? `${item.firstName} ${item.lastName}` : item.ownerName || item.restaurantName,
-      Email: item.email,
-      Phone: item.cellNumber || item.phone,
-      Status: item.status,
-      'Payment Status': item.paymentStatus,
-      'Created At': item.createdAt.toISOString(),
-      'Updated At': item.updatedAt.toISOString(),
-      ...(type === 'drivers' ? {
-        'Vehicle Type': item.vehicleType,
-        'Delivery Type': item.deliveryType
-      } : {
-        City: item.city,
-        Province: item.province
-      })
-    }));
+    const formatted = data.map(item => {
+      const baseData = {
+        ID: item.id,
+        Email: item.email,
+        Status: item.status,
+        'Registration Complete': item.isRegistrationComplete ? 'Yes' : 'No',
+        'Created At': item.createdAt.toISOString(),
+        'Updated At': item.updatedAt.toISOString()
+      };
+      if (type === 'drivers') {
+        return {
+          ...baseData,
+          Name: `${item.firstName || ''} ${item.lastName || ''}`.trim(),
+          Phone: item.cellNumber,
+          'Registration Stage': item.registrationStage,
+          'Total Stages': item.noofstages || 5,
+          'Payment Status': item.paymentStatus,
+          'Vehicle Type': item.vehicleType,
+          'Delivery Type': item.deliveryType,
+          'Background Check Status': item.backgroundCheckStatus,
+          'Email Verified': item.emailVerified ? 'Yes' : 'No'
+        };
+      } else {
+        return {
+          ...baseData,
+          'Restaurant Name': item.restaurantName,
+          'Owner Name': item.ownerName,
+          Phone: item.phone,
+          'Business Email': item.businessEmail,
+          'Business Phone': item.businessPhone,
+          'Current Step': item.currentStep,
+          'Completed Steps': (item.completedSteps || []).join(', '),
+          City: item.city,
+          Province: item.province,
+          'Business Type': item.businessType,
+          'HST Number': item.HSTNumber,
+          'Email Verified': item.emailVerified ? 'Yes' : 'No',
+          'Approved At': item.approvedAt ? item.approvedAt.toISOString() : '',
+          'Rejection Reason': item.rejectionReason || ''
+        };
+      }
+    });
     if (format === 'excel') {
       const workbook = new ExcelJS.Workbook();
       const sheet = workbook.addWorksheet(type);
@@ -570,62 +1029,8 @@ exports.updateDriverPayment = async (req, res) => {
   }
 };
 
-// Update restaurant payment status
-exports.updateRestaurantPayment = async (req, res) => {
-  try {
-    const {
-      id
-    } = req.params;
-    const {
-      action
-    } = req.body;
-    const restaurant = await Restaurant.findByPk(id);
-    if (!restaurant) {
-      return res.status(404).json({
-        success: false,
-        error: 'Restaurant not found'
-      });
-    }
-    let paymentStatus;
-    switch (action) {
-      case 'approve':
-        paymentStatus = 'completed';
-        break;
-      case 'reject':
-        paymentStatus = 'failed';
-        break;
-      case 'retry':
-        paymentStatus = 'pending';
-        break;
-      default:
-        return res.status(400).json({
-          success: false,
-          error: 'Invalid action'
-        });
-    }
-    await restaurant.update({
-      paymentStatus
-    });
-    await sendEmail({
-      email: restaurant.email,
-      subject: `Payment Status Update: ${paymentStatus.toUpperCase()}`,
-      message: `Your payment status has been updated to: ${paymentStatus.toUpperCase()}`
-    });
-    res.json({
-      success: true,
-      data: {
-        id,
-        paymentStatus
-      }
-    });
-  } catch (error) {
-    console.error('Error updating restaurant payment:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to update payment status'
-    });
-  }
-};
+// Note: Restaurant payment methods removed as restaurants no longer have payment fields
+
 exports.register = async (req, res) => {
   try {
     const {
@@ -754,7 +1159,8 @@ exports.bulkUpdateRestaurantStatus = async (req, res) => {
     const {
       restaurantIds,
       status,
-      remarks
+      remarks,
+      notes
     } = req.body;
     if (!restaurantIds || !Array.isArray(restaurantIds) || restaurantIds.length === 0) {
       return res.status(400).json({
@@ -762,7 +1168,7 @@ exports.bulkUpdateRestaurantStatus = async (req, res) => {
         message: 'Please provide an array of restaurant IDs'
       });
     }
-    if (!status || !['pending', 'approved', 'rejected'].includes(status)) {
+    if (!status || !['pending', 'approved', 'rejected', 'suspended'].includes(status)) {
       return res.status(400).json({
         success: false,
         message: 'Please provide a valid status'
@@ -782,6 +1188,13 @@ exports.bulkUpdateRestaurantStatus = async (req, res) => {
     const updatePromises = restaurants.map(async restaurant => {
       restaurant.status = status;
       if (remarks) restaurant.rejectionReason = remarks;
+      if (notes) restaurant.notes = notes;
+
+      // Set approval details if status is approved
+      if (status === 'approved') {
+        restaurant.approvedAt = new Date();
+        restaurant.approvedBy = req.admin.id;
+      }
       await restaurant.save();
 
       // Send email notification
@@ -877,68 +1290,119 @@ exports.bulkUpdateDriverPayment = async (req, res) => {
     });
   }
 };
-exports.bulkUpdateRestaurantPayment = async (req, res) => {
+
+// Note: Restaurant payment bulk update method removed as restaurants no longer have payment fields
+
+// Get detailed admin information by ID
+exports.getAdminById = async (req, res) => {
   try {
     const {
-      restaurantIds,
-      action
-    } = req.body;
-    if (!restaurantIds || !Array.isArray(restaurantIds) || restaurantIds.length === 0) {
-      return res.status(400).json({
-        success: false,
-        message: 'Please provide an array of restaurant IDs'
-      });
-    }
-    if (!action || !['approve', 'reject', 'retry'].includes(action)) {
-      return res.status(400).json({
-        success: false,
-        message: 'Please provide a valid action'
-      });
-    }
-    let paymentStatus;
-    switch (action) {
-      case 'approve':
-        paymentStatus = 'completed';
-        break;
-      case 'reject':
-        paymentStatus = 'failed';
-        break;
-      case 'retry':
-        paymentStatus = 'pending';
-        break;
-    }
-    const restaurants = await Restaurant.findAll({
-      where: {
-        id: restaurantIds
+      id
+    } = req.params;
+    const admin = await Admin.findByPk(id, {
+      attributes: {
+        exclude: ['password']
       }
     });
-    if (restaurants.length !== restaurantIds.length) {
-      return res.status(400).json({
+    if (!admin) {
+      return res.status(404).json({
         success: false,
-        message: 'Some restaurant IDs were not found'
+        message: 'Admin not found'
       });
     }
-    const updatePromises = restaurants.map(async restaurant => {
-      await restaurant.update({
-        paymentStatus
-      });
 
-      // Send email notification
-      await sendEmail({
-        email: restaurant.email,
-        subject: `Payment Status Update: ${paymentStatus.toUpperCase()}`,
-        message: `Your payment status has been updated to: ${paymentStatus.toUpperCase()}`
-      });
-      return {
-        id: restaurant.id,
-        paymentStatus
-      };
-    });
-    const updatedRestaurants = await Promise.all(updatePromises);
+    // Add computed fields for better admin view
+    const adminData = admin.toJSON();
+
+    // Add admin information
+    adminData.adminInfo = {
+      name: admin.name,
+      email: admin.email,
+      role: admin.role,
+      lastLogin: admin.lastLogin
+    };
+
+    // Add account information
+    adminData.account = {
+      id: admin.id,
+      createdAt: admin.createdAt,
+      updatedAt: admin.updatedAt
+    };
     res.status(200).json({
       success: true,
-      message: `Successfully updated payment status for ${updatedRestaurants.length} restaurants`,
-      data: updatedRestaurants
+      data: adminData
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+};
+
+// Get all admins with detailed information
+exports.getAllAdmins = async (req, res) => {
+  try {
+    const page = parseInt(req.query.page, 10) || 1;
+    const limit = parseInt(req.query.limit, 10) || 10;
+    const offset = (page - 1) * limit;
+    const where = {};
+
+    // Filter by role
+    if (req.query.role) where.role = req.query.role;
+
+    // Search functionality
+    if (req.query.search) {
+      where[Op.or] = [{
+        name: {
+          [Op.iLike]: `%${req.query.search}%`
+        }
+      }, {
+        email: {
+          [Op.iLike]: `%${req.query.search}%`
+        }
+      }];
+    }
+    const total = await Admin.count({
+      where
+    });
+    const admins = await Admin.findAll({
+      where,
+      attributes: {
+        exclude: ['password']
+      },
+      limit,
+      offset,
+      order: [['createdAt', 'DESC']]
+    });
+
+    // Add computed fields for each admin
+    const adminsWithInfo = admins.map(admin => {
+      const adminData = admin.toJSON();
+
+      // Add admin information
+      adminData.adminInfo = {
+        name: admin.name,
+        email: admin.email,
+        role: admin.role,
+        lastLogin: admin.lastLogin
+      };
+
+      // Add account information
+      adminData.account = {
+        id: admin.id,
+        createdAt: admin.createdAt,
+        updatedAt: admin.updatedAt
+      };
+      return adminData;
+    });
+    res.status(200).json({
+      success: true,
+      total,
+      count: adminsWithInfo.length,
+      totalPages: Math.ceil(total / limit),
+      currentPage: page,
+      data: adminsWithInfo
     });
   } catch (error) {
     res.status(500).json({

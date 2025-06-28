@@ -3,52 +3,52 @@ const {
 } = require('sequelize');
 module.exports = {
   async up(queryInterface, Sequelize) {
-    // Make fields nullable for initial signup in Drivers table
-    await queryInterface.changeColumn('Drivers', 'dateOfBirth', {
+    // Make fields nullable for initial signup in drivers table
+    await queryInterface.changeColumn('drivers', 'dateOfBirth', {
       type: DataTypes.DATE,
       allowNull: true
     });
-    await queryInterface.changeColumn('Drivers', 'cellNumber', {
+    await queryInterface.changeColumn('drivers', 'cellNumber', {
       type: DataTypes.STRING,
       allowNull: true
     });
-    await queryInterface.changeColumn('Drivers', 'firstName', {
+    await queryInterface.changeColumn('drivers', 'firstName', {
       type: DataTypes.STRING,
       allowNull: true
     });
-    await queryInterface.changeColumn('Drivers', 'lastName', {
+    await queryInterface.changeColumn('drivers', 'lastName', {
       type: DataTypes.STRING,
       allowNull: true
     });
-    await queryInterface.changeColumn('Drivers', 'streetNameNumber', {
+    await queryInterface.changeColumn('drivers', 'streetNameNumber', {
       type: DataTypes.STRING,
       allowNull: true
     });
-    await queryInterface.changeColumn('Drivers', 'city', {
+    await queryInterface.changeColumn('drivers', 'city', {
       type: DataTypes.STRING,
       allowNull: true
     });
-    await queryInterface.changeColumn('Drivers', 'province', {
+    await queryInterface.changeColumn('drivers', 'province', {
       type: DataTypes.STRING,
       allowNull: true
     });
-    await queryInterface.changeColumn('Drivers', 'postalCode', {
+    await queryInterface.changeColumn('drivers', 'postalCode', {
       type: DataTypes.STRING,
       allowNull: true
     });
 
-    // Check if Restaurants table exists and make similar changes
-    const [results] = await queryInterface.sequelize.query("SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'Restaurants'");
+    // Check if restaurants table exists and make similar changes
+    const [results] = await queryInterface.sequelize.query("SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'restaurants'");
     if (results.length > 0) {
-      await queryInterface.changeColumn('Restaurants', 'phoneNumber', {
+      await queryInterface.changeColumn('restaurants', 'phoneNumber', {
         type: DataTypes.STRING,
         allowNull: true
       });
-      await queryInterface.changeColumn('Restaurants', 'ownerName', {
+      await queryInterface.changeColumn('restaurants', 'ownerName', {
         type: DataTypes.STRING,
         allowNull: true
       });
-      await queryInterface.changeColumn('Restaurants', 'restaurantName', {
+      await queryInterface.changeColumn('restaurants', 'restaurantName', {
         type: DataTypes.STRING,
         allowNull: true
       });
@@ -56,51 +56,51 @@ module.exports = {
   },
   async down(queryInterface, Sequelize) {
     // Revert back to NOT NULL (be careful with this in production!)
-    await queryInterface.changeColumn('Drivers', 'dateOfBirth', {
+    await queryInterface.changeColumn('drivers', 'dateOfBirth', {
       type: DataTypes.DATE,
       allowNull: false
     });
-    await queryInterface.changeColumn('Drivers', 'cellNumber', {
+    await queryInterface.changeColumn('drivers', 'cellNumber', {
       type: DataTypes.STRING,
       allowNull: false
     });
-    await queryInterface.changeColumn('Drivers', 'firstName', {
+    await queryInterface.changeColumn('drivers', 'firstName', {
       type: DataTypes.STRING,
       allowNull: false
     });
-    await queryInterface.changeColumn('Drivers', 'lastName', {
+    await queryInterface.changeColumn('drivers', 'lastName', {
       type: DataTypes.STRING,
       allowNull: false
     });
-    await queryInterface.changeColumn('Drivers', 'streetNameNumber', {
+    await queryInterface.changeColumn('drivers', 'streetNameNumber', {
       type: DataTypes.STRING,
       allowNull: false
     });
-    await queryInterface.changeColumn('Drivers', 'city', {
+    await queryInterface.changeColumn('drivers', 'city', {
       type: DataTypes.STRING,
       allowNull: false
     });
-    await queryInterface.changeColumn('Drivers', 'province', {
+    await queryInterface.changeColumn('drivers', 'province', {
       type: DataTypes.STRING,
       allowNull: false
     });
-    await queryInterface.changeColumn('Drivers', 'postalCode', {
+    await queryInterface.changeColumn('drivers', 'postalCode', {
       type: DataTypes.STRING,
       allowNull: false
     });
 
-    // Revert Restaurants table changes if it exists
-    const [results] = await queryInterface.sequelize.query("SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'Restaurants'");
+    // Revert restaurants table changes if it exists
+    const [results] = await queryInterface.sequelize.query("SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'restaurants'");
     if (results.length > 0) {
-      await queryInterface.changeColumn('Restaurants', 'phoneNumber', {
+      await queryInterface.changeColumn('restaurants', 'phoneNumber', {
         type: DataTypes.STRING,
         allowNull: false
       });
-      await queryInterface.changeColumn('Restaurants', 'ownerName', {
+      await queryInterface.changeColumn('restaurants', 'ownerName', {
         type: DataTypes.STRING,
         allowNull: false
       });
-      await queryInterface.changeColumn('Restaurants', 'restaurantName', {
+      await queryInterface.changeColumn('restaurants', 'restaurantName', {
         type: DataTypes.STRING,
         allowNull: false
       });

@@ -1,4 +1,3 @@
-const Restaurant = require('../models/Restaurant');
 const {
   uploadFile
 } = require('../utils/s3');
@@ -9,11 +8,11 @@ const {
 } = require('../utils/email');
 const BaseController = require('./BaseController');
 const {
-  User
+  Restaurant
 } = require('../models');
 const {
   sequelize
-} = require('../config/database'); // ADD THIS LINE
+} = require('../config/database');
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 
 // Add in-memory store
@@ -23,16 +22,727 @@ class RestaurantController extends BaseController {
   constructor() {
     super();
     this.stripe = stripe;
-    this.registerRestaurant = this.registerRestaurant.bind(this);
-    this.getProfile = this.getProfile.bind(this);
-    this.updateProfile = this.updateProfile.bind(this);
-    this.updateRestaurantStatus = this.updateRestaurantStatus.bind(this);
-    this.sendVerificationCode = this.sendVerificationCode.bind(this);
-    this.verifyOTP = this.verifyOTP.bind(this);
-    this.updateMenuItems = this.updateMenuItems.bind(this);
-    this.updateHours = this.updateHours.bind(this);
-    this.updateTaxInfo = this.updateTaxInfo.bind(this);
-    this.createPaymentIntent = this.createPaymentIntent.bind(this);
+  }
+
+  // Helper method to properly handle completedSteps array
+  updateCompletedSteps(currentSteps, stepToAdd) {
+    // Ensure currentSteps is an array
+    let stepsArray = Array.isArray(currentSteps) ? [...currentSteps] : [];
+
+    // Parse if it's a JSON string
+    if (typeof currentSteps === 'string') {
+      try {
+        stepsArray = JSON.parse(currentSteps);
+      } catch (e) {
+        stepsArray = [];
+      }
+    }
+
+    // Ensure it's an array after parsing
+    if (!Array.isArray(stepsArray)) {
+      stepsArray = [];
+    }
+
+    // Add step if not already present
+    if (!stepsArray.includes(stepToAdd)) {
+      stepsArray.push(stepToAdd);
+    }
+
+    // Sort the array to maintain order
+    return stepsArray.sort((a, b) => a - b);
+  }
+
+  // Helper method to get step information
+  getStepInfo(step) {
+    const stepInfo = {
+      1: {
+        title: "Owner & Business Information",
+        description: "Complete your basic owner and business information"
+      },
+      2: {
+        title: "Banking & Tax Information",
+        description: "Provide your banking information and HST number"
+      },
+      3: {
+        title: "Document Uploads",
+        description: "Upload required business documents"
+      },
+      4: {
+        title: "Review & Confirmation",
+        description: "Review your information and confirm registration details"
+      },
+      5: {
+        title: "Payment Processing",
+        description: "Complete your registration fee payment"
+      }
+    };
+    return stepInfo[step] || {
+      title: "Unknown Step",
+      description: "Please complete this step to continue"
+    };
+  }
+
+  // @desc    Register new restaurant (basic account)
+  // @route   POST /api/restaurants/register
+  // @access  Public
+  async registerRestaurant(req, res) {
+    try {
+      this.validateRequest(req);
+      const {
+        ownerName,
+        email,
+        password
+      } = req.body;
+
+      // Check if email already exists
+      const existingRestaurant = await Restaurant.findOne({
+        where: {
+          email
+        }
+      });
+      if (existingRestaurant) {
+        return this.handleError({
+          status: 400,
+          message: 'Email already registered'
+        }, res);
+      }
+
+      // Create restaurant with basic info
+      const restaurant = await Restaurant.create({
+        ownerName,
+        email,
+        password,
+        currentStep: 1,
+        completedSteps: [],
+        // Initialize as empty array
+        isRegistrationComplete: false
+      });
+      return this.handleSuccess(res, {
+        restaurantId: restaurant.id,
+        currentStep: restaurant.currentStep,
+        completedSteps: restaurant.completedSteps,
+        totalSteps: 5,
+        message: 'Restaurant account created successfully. Please complete the registration steps.'
+      }, 'Restaurant registration successful');
+    } catch (error) {
+      return this.handleError(error, res);
+    }
+  }
+
+  // @desc    Login restaurant
+  // @route   POST /api/restaurants/login
+  // @access  Public
+  async login(req, res) {
+    try {
+      this.validateRequest(req);
+      const {
+        email,
+        password
+      } = req.body;
+      if (!email || !password) {
+        return this.handleError({
+          status: 400,
+          message: 'Email and password are required'
+        }, res);
+      }
+
+      // Find restaurant
+      const restaurant = await Restaurant.findOne({
+        where: {
+          email
+        }
+      });
+      if (!restaurant) {
+        return this.handleError({
+          status: 401,
+          message: 'Invalid credentials'
+        }, res);
+      }
+
+      // Check password
+      const isPasswordValid = await restaurant.comparePassword(password);
+      if (!isPasswordValid) {
+        return this.handleError({
+          status: 401,
+          message: 'Invalid credentials'
+        }, res);
+      }
+
+      // Generate JWT token
+      const jwt = require('jsonwebtoken');
+      const token = jwt.sign({
+        id: restaurant.id,
+        email: restaurant.email,
+        type: 'restaurant'
+      }, process.env.JWT_SECRET, {
+        expiresIn: process.env.JWT_EXPIRES_IN || '7d'
+      });
+
+      // Generate stage message
+      let stageMessage = '';
+      const currentStep = restaurant.currentStep || 1;
+      if (restaurant.isRegistrationComplete) {
+        stageMessage = 'Registration complete. You can now access all features.';
+      } else {
+        const stepInfo = this.getStepInfo(currentStep);
+        stageMessage = `You are currently on Step ${currentStep}: ${stepInfo.title}. ${stepInfo.description}`;
+      }
+      return this.handleSuccess(res, {
+        message: 'Login successful',
+        type: 'restaurant',
+        restaurant: {
+          id: restaurant.id,
+          ownerName: restaurant.ownerName,
+          email: restaurant.email,
+          currentStep: currentStep,
+          completedSteps: restaurant.completedSteps,
+          isRegistrationComplete: restaurant.isRegistrationComplete,
+          status: restaurant.status || 'incomplete',
+          paymentStatus: restaurant.paymentStatus || 'pending',
+          banking: restaurant.bankingInfo || {},
+          phone: restaurant.phone || null,
+          businessName: restaurant.restaurantName || null,
+          businessEmail: restaurant.businessEmail || null,
+          businessPhone: restaurant.businessPhone || null,
+          address: restaurant.restaurantAddress || null,
+          city: restaurant.city || null,
+          province: restaurant.province || null,
+          postalCode: restaurant.postalCode || null,
+          documents: {
+            drivingLicense: restaurant.drivingLicenseUrl || null,
+            voidCheque: restaurant.voidChequeUrl || null,
+            hstDocument: restaurant.HSTdocumentUrl || null,
+            foodHandlingCertificate: restaurant.foodHandlingCertificateUrl || null,
+            articleOfIncorporation: restaurant.articleofIncorporation || null
+          }
+        },
+        stageMessage,
+        token
+      }, 'Login successful');
+    } catch (error) {
+      console.error('Restaurant login error:', error);
+      return this.handleError(error, res);
+    }
+  }
+
+  // @desc    Update Step 1: Owner & Business Information
+  // @route   PUT /api/restaurants/step1
+  // @access  Private
+  async updateStep1(req, res) {
+    const transaction = await sequelize.transaction();
+    try {
+      this.validateRequest(req);
+      const {
+        phone,
+        identificationType,
+        ownerAddress,
+        businessType,
+        restaurantName,
+        businessEmail,
+        businessPhone,
+        restaurantAddress,
+        city,
+        province,
+        postalCode
+      } = req.body;
+      const restaurant = await Restaurant.findByPk(req.user.id, {
+        transaction
+      });
+      if (!restaurant) {
+        await transaction.rollback();
+        return this.handleError({
+          status: 404,
+          message: 'Restaurant not found'
+        }, res);
+      }
+
+      // Update completedSteps array properly
+      const updatedCompletedSteps = this.updateCompletedSteps(restaurant.completedSteps, 1);
+
+      // Update step 1 fields and mark step 1 as completed
+      await restaurant.update({
+        phone,
+        identificationType,
+        ownerAddress,
+        businessType,
+        restaurantName,
+        businessEmail,
+        businessPhone,
+        restaurantAddress,
+        city,
+        province,
+        postalCode,
+        currentStep: 2,
+        completedSteps: updatedCompletedSteps
+      }, {
+        transaction
+      });
+      await transaction.commit();
+
+      // Reload to get fresh data
+      await restaurant.reload();
+      return this.handleSuccess(res, {
+        currentStep: restaurant.currentStep,
+        completedSteps: restaurant.completedSteps,
+        totalSteps: 5,
+        message: 'Step 1 completed successfully'
+      }, 'Step 1 updated successfully');
+    } catch (error) {
+      await transaction.rollback();
+      return this.handleError(error, res);
+    }
+  }
+
+  // @desc    Update Step 2: Banking & Tax Information
+  // @route   PUT /api/restaurants/step2
+  // @access  Private
+  async updateStep2(req, res) {
+    const transaction = await sequelize.transaction();
+    try {
+      this.validateRequest(req);
+      const {
+        bankingInfo,
+        HSTNumber
+      } = req.body;
+      const restaurant = await Restaurant.findByPk(req.user.id, {
+        transaction
+      });
+      if (!restaurant) {
+        await transaction.rollback();
+        return this.handleError({
+          status: 404,
+          message: 'Restaurant not found'
+        }, res);
+      }
+
+      // Validate that step 1 is completed
+      const currentCompletedSteps = Array.isArray(restaurant.completedSteps) ? restaurant.completedSteps : [];
+      if (!currentCompletedSteps.includes(1)) {
+        await transaction.rollback();
+        return this.handleError({
+          status: 400,
+          message: 'Please complete Step 1 first'
+        }, res);
+      }
+
+      // Ensure we have valid banking info
+      const bankingInfoToSave = typeof bankingInfo === 'string' ? JSON.parse(bankingInfo) : bankingInfo;
+
+      // Update completedSteps array properly
+      const updatedCompletedSteps = this.updateCompletedSteps(restaurant.completedSteps, 2);
+
+      // Update with all data including properly managed completedSteps
+      await restaurant.update({
+        bankingInfo: bankingInfoToSave,
+        HSTNumber,
+        currentStep: 3,
+        completedSteps: updatedCompletedSteps
+      }, {
+        transaction
+      });
+      await transaction.commit();
+
+      // Reload to get fresh data
+      await restaurant.reload();
+      return this.handleSuccess(res, {
+        currentStep: restaurant.currentStep,
+        completedSteps: restaurant.completedSteps,
+        totalSteps: 5,
+        message: 'Step 2 completed successfully'
+      }, 'Step 2 updated successfully');
+    } catch (error) {
+      await transaction.rollback();
+      return this.handleError(error, res);
+    }
+  }
+
+  // @desc    Update Step 3: Documents
+  // @route   PUT /api/restaurants/step3
+  // @access  Private
+  async updateStep3(req, res) {
+    const transaction = await sequelize.transaction();
+    try {
+      this.validateRequest(req);
+      const restaurant = await Restaurant.findByPk(req.user.id, {
+        transaction
+      });
+      if (!restaurant) {
+        await transaction.rollback();
+        return this.handleError({
+          status: 404,
+          message: 'Restaurant not found'
+        }, res);
+      }
+
+      // Validate that step 2 is completed
+      const currentCompletedSteps = Array.isArray(restaurant.completedSteps) ? restaurant.completedSteps : [];
+      if (!currentCompletedSteps.includes(2)) {
+        await transaction.rollback();
+        return this.handleError({
+          status: 400,
+          message: 'Please complete Step 2 first'
+        }, res);
+      }
+
+      // Accept both file uploads and direct URLs
+      const documentUrls = this.uploadRestaurantDocuments(req.files || {}, req.body || {});
+
+      // Update completedSteps array properly
+      const updatedCompletedSteps = this.updateCompletedSteps(restaurant.completedSteps, 3);
+      await restaurant.update({
+        ...documentUrls,
+        currentStep: 4,
+        completedSteps: updatedCompletedSteps
+      }, {
+        transaction
+      });
+      await transaction.commit();
+
+      // Reload to get fresh data
+      await restaurant.reload();
+      return this.handleSuccess(res, {
+        currentStep: restaurant.currentStep,
+        completedSteps: restaurant.completedSteps,
+        totalSteps: 5,
+        message: 'Step 3 completed successfully'
+      }, 'Step 3 updated successfully');
+    } catch (error) {
+      await transaction.rollback();
+      return this.handleError(error, res);
+    }
+  }
+
+  // @desc    Update Step 4: Review & Confirmation
+  // @route   PUT /api/restaurants/step4
+  // @access  Private
+  async updateStep4(req, res) {
+    const transaction = await sequelize.transaction();
+    try {
+      this.validateRequest(req);
+      const {
+        agreedToTerms,
+        confirmationChecked,
+        additionalNotes
+      } = req.body;
+      const restaurant = await Restaurant.findByPk(req.user.id, {
+        transaction
+      });
+      if (!restaurant) {
+        await transaction.rollback();
+        return this.handleError({
+          status: 404,
+          message: 'Restaurant not found'
+        }, res);
+      }
+
+      // Validate that step 3 is completed
+      const currentCompletedSteps = Array.isArray(restaurant.completedSteps) ? restaurant.completedSteps : [];
+      if (!currentCompletedSteps.includes(3)) {
+        await transaction.rollback();
+        return this.handleError({
+          status: 400,
+          message: 'Please complete Step 3 first'
+        }, res);
+      }
+
+      // Validate required confirmations
+      if (!agreedToTerms || !confirmationChecked) {
+        await transaction.rollback();
+        return this.handleError({
+          status: 400,
+          message: 'Please agree to terms and conditions and confirm your information'
+        }, res);
+      }
+
+      // Update completedSteps array properly
+      const updatedCompletedSteps = this.updateCompletedSteps(restaurant.completedSteps, 4);
+
+      // Update step 4 fields
+      await restaurant.update({
+        agreedToTerms: true,
+        confirmationChecked: true,
+        additionalNotes: additionalNotes || null,
+        reviewCompletedAt: new Date(),
+        currentStep: 5,
+        completedSteps: updatedCompletedSteps
+      }, {
+        transaction
+      });
+      await transaction.commit();
+
+      // Reload to get fresh data
+      await restaurant.reload();
+      return this.handleSuccess(res, {
+        currentStep: restaurant.currentStep,
+        completedSteps: restaurant.completedSteps,
+        totalSteps: 5,
+        message: 'Step 4 completed successfully. Please proceed to payment.',
+        nextStep: {
+          title: 'Payment Processing',
+          description: 'Complete your registration fee payment to finalize your account'
+        }
+      }, 'Step 4 updated successfully');
+    } catch (error) {
+      await transaction.rollback();
+      return this.handleError(error, res);
+    }
+  }
+
+  // @desc    Update Step 5: Payment Processing
+  // @route   PUT /api/restaurants/step5
+  // @access  Private
+  async updateStep5(req, res) {
+    const transaction = await sequelize.transaction();
+    try {
+      this.validateRequest(req);
+      const {
+        paymentIntentId,
+        stripePaymentMethodId
+      } = req.body;
+      const restaurant = await Restaurant.findByPk(req.user.id, {
+        transaction
+      });
+      if (!restaurant) {
+        await transaction.rollback();
+        return this.handleError({
+          status: 404,
+          message: 'Restaurant not found'
+        }, res);
+      }
+
+      // Validate that step 4 is completed
+      const currentCompletedSteps = Array.isArray(restaurant.completedSteps) ? restaurant.completedSteps : [];
+      if (!currentCompletedSteps.includes(4)) {
+        await transaction.rollback();
+        return this.handleError({
+          status: 400,
+          message: 'Please complete Step 4 first'
+        }, res);
+      }
+
+      // Validate payment intent ID
+      if (!paymentIntentId) {
+        await transaction.rollback();
+        return this.handleError({
+          status: 400,
+          message: 'Payment intent ID is required'
+        }, res);
+      }
+
+      // Verify payment with Stripe
+      try {
+        const paymentIntent = await this.stripe.paymentIntents.retrieve(paymentIntentId);
+        if (paymentIntent.status !== 'succeeded') {
+          await transaction.rollback();
+          return this.handleError({
+            status: 400,
+            message: 'Payment has not been completed successfully'
+          }, res);
+        }
+      } catch (stripeError) {
+        await transaction.rollback();
+        return this.handleError({
+          status: 400,
+          message: 'Invalid payment intent or payment verification failed'
+        }, res);
+      }
+
+      // Update completedSteps array properly
+      const updatedCompletedSteps = this.updateCompletedSteps(restaurant.completedSteps, 5);
+
+      // Check if registration is complete (all 5 steps completed)
+      const isRegistrationComplete = updatedCompletedSteps.includes(1) && updatedCompletedSteps.includes(2) && updatedCompletedSteps.includes(3) && updatedCompletedSteps.includes(4) && updatedCompletedSteps.includes(5);
+
+      // Update step 5 fields and complete registration
+      await restaurant.update({
+        paymentStatus: 'completed',
+        stripePaymentIntentId: paymentIntentId,
+        stripePaymentMethodId: stripePaymentMethodId || null,
+        paymentCompletedAt: new Date(),
+        registrationCompletedAt: isRegistrationComplete ? new Date() : null,
+        currentStep: 5,
+        completedSteps: updatedCompletedSteps,
+        isRegistrationComplete: isRegistrationComplete,
+        status: 'pending_approval' // Restaurant is now pending admin approval
+      }, {
+        transaction
+      });
+      await transaction.commit();
+
+      // Reload to get fresh data
+      await restaurant.reload();
+
+      // Send completion email
+      try {
+        await sendEmail({
+          to: restaurant.email,
+          subject: 'Registration Completed Successfully',
+          html: emailTemplates.registrationComplete({
+            ownerName: restaurant.ownerName,
+            restaurantName: restaurant.restaurantName,
+            registrationDate: new Date().toLocaleDateString()
+          })
+        });
+      } catch (emailError) {
+        console.error('Failed to send completion email:', emailError);
+        // Don't fail the registration if email fails
+      }
+      return this.handleSuccess(res, {
+        currentStep: restaurant.currentStep,
+        completedSteps: restaurant.completedSteps,
+        totalSteps: 5,
+        isRegistrationComplete: restaurant.isRegistrationComplete,
+        paymentStatus: restaurant.paymentStatus,
+        status: restaurant.status,
+        message: 'Congratulations! Your registration is now complete. Your account is pending approval.',
+        nextSteps: ['Your application will be reviewed by our team', 'You will receive an email notification once approved', 'Once approved, you can start using all platform features']
+      }, 'Registration completed successfully');
+    } catch (error) {
+      await transaction.rollback();
+      return this.handleError(error, res);
+    }
+  }
+
+  // @desc    Get restaurant profile
+  // @route   GET /api/restaurants/profile
+  // @access  Private
+  async getProfile(req, res) {
+    try {
+      const restaurant = await Restaurant.findByPk(req.user.id, {
+        attributes: {
+          exclude: ['password', 'emailVerificationToken']
+        }
+      });
+      if (!restaurant) {
+        return this.handleError({
+          status: 404,
+          message: 'Restaurant not found'
+        }, res);
+      }
+      return this.handleSuccess(res, {
+        restaurant
+      }, 'Profile retrieved successfully');
+    } catch (error) {
+      return this.handleError(error, res);
+    }
+  }
+
+  // @desc    Get registration progress
+  // @route   GET /api/restaurants/progress
+  // @access  Private
+  async getRegistrationProgress(req, res) {
+    try {
+      const restaurant = await Restaurant.findByPk(req.user.id, {
+        attributes: ['id', 'currentStep', 'completedSteps', 'isRegistrationComplete', 'paymentStatus', 'status']
+      });
+      if (!restaurant) {
+        return this.handleError({
+          status: 404,
+          message: 'Restaurant not found'
+        }, res);
+      }
+
+      // Ensure completedSteps is properly formatted
+      const completedSteps = Array.isArray(restaurant.completedSteps) ? restaurant.completedSteps : [];
+
+      // Calculate actual completion status based on completedSteps
+      const actualIsRegistrationComplete = completedSteps.includes(1) && completedSteps.includes(2) && completedSteps.includes(3) && completedSteps.includes(4) && completedSteps.includes(5);
+
+      // Update the database if the completion status is incorrect
+      if (restaurant.isRegistrationComplete !== actualIsRegistrationComplete) {
+        await restaurant.update({
+          isRegistrationComplete: actualIsRegistrationComplete,
+          completedSteps: completedSteps // Ensure proper format
+        });
+      }
+
+      // Get current step info
+      const currentStepInfo = this.getStepInfo(restaurant.currentStep);
+      return this.handleSuccess(res, {
+        currentStep: restaurant.currentStep,
+        currentStepInfo: currentStepInfo,
+        completedSteps: completedSteps,
+        isRegistrationComplete: actualIsRegistrationComplete,
+        paymentStatus: restaurant.paymentStatus || 'pending',
+        status: restaurant.status || 'incomplete',
+        totalSteps: 5,
+        progressPercentage: Math.round(completedSteps.length / 5 * 100)
+      }, 'Progress retrieved successfully');
+    } catch (error) {
+      return this.handleError(error, res);
+    }
+  }
+
+  // @desc    Get registration summary for step 4 review
+  // @route   GET /api/restaurants/registration-summary
+  // @access  Private
+  async getRegistrationSummary(req, res) {
+    try {
+      const restaurant = await Restaurant.findByPk(req.user.id, {
+        attributes: {
+          exclude: ['password', 'emailVerificationToken']
+        }
+      });
+      if (!restaurant) {
+        return this.handleError({
+          status: 404,
+          message: 'Restaurant not found'
+        }, res);
+      }
+
+      // Check if steps 1-3 are completed
+      const completedSteps = Array.isArray(restaurant.completedSteps) ? restaurant.completedSteps : [];
+      if (!completedSteps.includes(1) || !completedSteps.includes(2) || !completedSteps.includes(3)) {
+        return this.handleError({
+          status: 400,
+          message: 'Please complete steps 1-3 before reviewing registration summary'
+        }, res);
+      }
+
+      // Prepare summary data
+      const summary = {
+        ownerInformation: {
+          ownerName: restaurant.ownerName,
+          email: restaurant.email,
+          phone: restaurant.phone,
+          identificationType: restaurant.identificationType,
+          ownerAddress: restaurant.ownerAddress
+        },
+        businessInformation: {
+          restaurantName: restaurant.restaurantName,
+          businessEmail: restaurant.businessEmail,
+          businessPhone: restaurant.businessPhone,
+          businessType: restaurant.businessType,
+          restaurantAddress: restaurant.restaurantAddress,
+          city: restaurant.city,
+          province: restaurant.province,
+          postalCode: restaurant.postalCode
+        },
+        financialInformation: {
+          bankingInfo: restaurant.bankingInfo,
+          HSTNumber: restaurant.HSTNumber
+        },
+        documents: {
+          drivingLicenseUrl: restaurant.drivingLicenseUrl,
+          voidChequeUrl: restaurant.voidChequeUrl,
+          HSTdocumentUrl: restaurant.HSTdocumentUrl,
+          foodHandlingCertificateUrl: restaurant.foodHandlingCertificateUrl,
+          articleofIncorporation: restaurant.articleofIncorporation
+        },
+        registrationFee: {
+          amount: 50.00,
+          currency: 'USD',
+          description: 'One-time registration fee'
+        },
+        currentStep: restaurant.currentStep,
+        completedSteps: restaurant.completedSteps
+      };
+      return this.handleSuccess(res, {
+        summary
+      }, 'Registration summary retrieved successfully');
+    } catch (error) {
+      return this.handleError(error, res);
+    }
   }
 
   // @desc    Send verification email
@@ -137,128 +847,119 @@ class RestaurantController extends BaseController {
     }
   }
 
-  // @desc    Register new restaurant
-  // @route   POST /api/restaurants
-  // @access  Public
-  async registerRestaurant(req, res) {
-    const t = await sequelize.transaction();
-    try {
-      this.validateRequest(req);
-      const {
-        ownerName,
-        email,
-        password,
-        phone,
-        identificationType,
-        restaurantName,
-        businessAddress,
-        city,
-        province,
-        postalCode,
-        bankingInfo,
-        taxInfo,
-        menuDetails,
-        hoursOfOperation,
-        stripePaymentIntentId
-      } = req.body;
-
-      // Verify payment
-      const paymentIntent = await this.stripe.paymentIntents.retrieve(stripePaymentIntentId);
-      if (paymentIntent.status !== 'succeeded') {
-        await t.rollback();
-        return this.handleError({
-          status: 400,
-          message: 'Payment not completed'
-        }, res);
-      }
-
-      // Handle file uploads
-      const documentUrls = this.uploadRestaurantDocuments(req.files);
-
-      // Create restaurant
-      const restaurant = await Restaurant.create({
-        ownerName,
-        email,
-        password,
-        phone,
-        identificationType,
-        restaurantName,
-        businessAddress,
-        city,
-        province,
-        postalCode,
-        bankingInfo: JSON.parse(bankingInfo),
-        taxInfo: JSON.parse(taxInfo),
-        menuDetails: JSON.parse(menuDetails),
-        hoursOfOperation: JSON.parse(hoursOfOperation),
-        paymentStatus: 'completed',
-        paymentAmount: paymentIntent.amount / 100,
-        // store amount in dollars
-        paymentDate: new Date(),
-        stripePaymentIntentId,
-        emailVerified: true,
-        ...documentUrls
-      }, {
-        transaction: t
-      });
-      await t.commit();
-      return this.handleSuccess(res, {
-        restaurantId: restaurant.id
-      }, 'Restaurant registration successful');
-    } catch (error) {
-      await t.rollback();
-      return this.handleError(error, res);
-    }
-  }
-  uploadRestaurantDocuments(files) {
-    const documentUrls = {};
-
-    // Handle mandatory file uploads as defined in your model
-    if (files.businessDocument && files.businessDocument[0]) {
-      documentUrls.businessDocumentUrl = files.businessDocument[0].location;
-    } else {
-      throw new Error('Missing required document: Business Document');
-    }
-    if (files.voidCheque && files.voidCheque[0]) {
-      documentUrls.voidChequeUrl = files.voidCheque[0].location;
-    } else {
-      throw new Error('Missing required document: Void Cheque');
-    }
-    if (files.businessLicense && files.businessLicense[0]) {
-      documentUrls.drivingLicenseUrl = files.businessLicense[0].location;
-    } else {
-      throw new Error('Missing required document: Business License');
-    }
-
-    // Handle optional menu images
-    if (files.menuImages && files.menuImages.length > 0) {
-      // Note: Your model does not have a column for menuImageUrls. 
-      // This logic is here if you decide to add it later.
-      // documentUrls.menuImageUrls = files.menuImages.map(file => file.location);
-    }
-    return documentUrls;
-  }
-
-  // @desc    Get restaurant profile
-  // @route   GET /api/restaurants/profile
+  // @desc    Create payment intent for registration fee
+  // @route   POST /api/restaurants/create-payment-intent
   // @access  Private
-  async getProfile(req, res) {
+  async createPaymentIntent(req, res) {
     try {
-      const restaurant = await Restaurant.findById(req.user.id).select('-password');
+      const restaurant = await Restaurant.findByPk(req.user.id);
       if (!restaurant) {
         return res.status(404).json({
           success: false,
           message: 'Restaurant not found'
         });
       }
+
+      // Check if step 4 is completed
+      const completedSteps = Array.isArray(restaurant.completedSteps) ? restaurant.completedSteps : [];
+      if (!completedSteps.includes(4)) {
+        return res.status(400).json({
+          success: false,
+          message: 'Please complete all previous steps before payment'
+        });
+      }
+
+      // Check if payment is already completed
+      if (restaurant.paymentStatus === 'completed') {
+        return res.status(400).json({
+          success: false,
+          message: 'Payment has already been completed'
+        });
+      }
+
+      // Create payment intent
+      const paymentIntent = await this.stripe.paymentIntents.create({
+        amount: 5000,
+        // $50.00 in cents - registration fee
+        currency: 'usd',
+        metadata: {
+          restaurantId: restaurant.id,
+          email: restaurant.email,
+          restaurantName: restaurant.restaurantName || 'Restaurant Registration'
+        },
+        automatic_payment_methods: {
+          enabled: true
+        }
+      });
+
+      // Store payment intent ID for tracking
+      await restaurant.update({
+        pendingPaymentIntentId: paymentIntent.id
+      });
       res.status(200).json({
         success: true,
-        data: restaurant
+        clientSecret: paymentIntent.client_secret,
+        paymentIntentId: paymentIntent.id,
+        amount: 5000,
+        currency: 'usd'
       });
     } catch (error) {
+      console.error('Error creating payment intent:', error);
       res.status(500).json({
         success: false,
-        message: error.message
+        message: 'Failed to create payment intent'
+      });
+    }
+  }
+
+  // @desc    Complete payment for restaurant registration
+  // @route   POST /api/restaurants/complete-payment
+  // @access  Private
+  async completePayment(req, res) {
+    try {
+      const {
+        paymentIntentId
+      } = req.body;
+      if (!paymentIntentId) {
+        return res.status(400).json({
+          success: false,
+          message: 'Payment intent ID is required'
+        });
+      }
+      const restaurant = await Restaurant.findByPk(req.user.id);
+      if (!restaurant) {
+        return res.status(404).json({
+          success: false,
+          message: 'Restaurant not found'
+        });
+      }
+
+      // Verify payment with Stripe
+      const paymentIntent = await this.stripe.paymentIntents.retrieve(paymentIntentId);
+      if (paymentIntent.status !== 'succeeded') {
+        return res.status(400).json({
+          success: false,
+          message: 'Payment has not been completed successfully'
+        });
+      }
+
+      // Update restaurant with payment completion
+      await restaurant.update({
+        paymentStatus: 'completed',
+        stripePaymentIntentId: paymentIntentId,
+        paymentCompletedAt: new Date()
+      });
+      return res.json({
+        success: true,
+        message: 'Payment completed successfully',
+        paymentStatus: 'completed',
+        paymentIntentId: paymentIntentId
+      });
+    } catch (error) {
+      console.error('Error completing payment:', error);
+      return res.status(500).json({
+        success: false,
+        message: error.message || 'Failed to complete payment'
       });
     }
   }
@@ -308,14 +1009,14 @@ class RestaurantController extends BaseController {
       } = req.body;
 
       // Validate status
-      const validStatuses = ['pending', 'approved', 'rejected'];
+      const validStatuses = ['pending_approval', 'approved', 'rejected', 'suspended'];
       if (!validStatuses.includes(status)) {
         return res.status(400).json({
           success: false,
           message: 'Invalid status value'
         });
       }
-      const restaurant = await Restaurant.findById(id);
+      const restaurant = await Restaurant.findByPk(id);
       if (!restaurant) {
         return res.status(404).json({
           success: false,
@@ -323,6 +1024,7 @@ class RestaurantController extends BaseController {
         });
       }
       restaurant.status = status;
+      restaurant.statusUpdatedAt = new Date();
       await restaurant.save();
 
       // Send email notification
@@ -334,10 +1036,11 @@ class RestaurantController extends BaseController {
       res.status(200).json({
         success: true,
         data: {
-          _id: restaurant._id,
+          id: restaurant.id,
           ownerName: restaurant.ownerName,
           email: restaurant.email,
-          status: restaurant.status
+          status: restaurant.status,
+          statusUpdatedAt: restaurant.statusUpdatedAt
         }
       });
     } catch (error) {
@@ -485,49 +1188,123 @@ class RestaurantController extends BaseController {
     }
   }
 
-  // @desc    Create payment intent for registration fee
-  // @route   POST /api/restaurants/create-payment-intent
-  // @access  Public
-  async createPaymentIntent(req, res) {
+  // @desc    Get step validation status
+  // @route   GET /api/restaurants/step-validation/:step
+  // @access  Private
+  async getStepValidation(req, res) {
     try {
       const {
-        email
-      } = req.body;
+        step
+      } = req.params;
+      const stepNumber = parseInt(step);
+      if (stepNumber < 1 || stepNumber > 5) {
+        return this.handleError({
+          status: 400,
+          message: 'Invalid step number'
+        }, res);
+      }
+      const restaurant = await Restaurant.findByPk(req.user.id);
+      if (!restaurant) {
+        return this.handleError({
+          status: 404,
+          message: 'Restaurant not found'
+        }, res);
+      }
+      const completedSteps = Array.isArray(restaurant.completedSteps) ? restaurant.completedSteps : [];
+      let validation = {
+        stepNumber: stepNumber,
+        isCompleted: completedSteps.includes(stepNumber),
+        canAccess: true,
+        missingFields: [],
+        errors: []
+      };
 
-      // Check if email is verified
-      const verificationData = emailVerificationStore.get(email);
-      const isVerified = verificationData && verificationData.expiresAt > Date.now() && verificationData.verified;
-      if (!isVerified) {
-        return res.status(400).json({
-          success: false,
-          message: 'Please verify your email first'
-        });
+      // Check if previous steps are completed
+      for (let i = 1; i < stepNumber; i++) {
+        if (!completedSteps.includes(i)) {
+          validation.canAccess = false;
+          validation.errors.push(`Please complete Step ${i} first`);
+        }
       }
 
-      // Create payment intent
-      const paymentIntent = await this.stripe.paymentIntents.create({
-        amount: 5000,
-        // $50.00 in cents
-        currency: 'usd',
-        metadata: {
-          email
-        },
-        automatic_payment_methods: {
-          enabled: true
-        }
-      });
-      res.status(200).json({
-        success: true,
-        clientSecret: paymentIntent.client_secret,
-        paymentIntentId: paymentIntent.id
-      });
+      // Validate specific step requirements
+      switch (stepNumber) {
+        case 1:
+          const step1Fields = ['ownerName', 'phone', 'identificationType', 'ownerAddress', 'businessType', 'restaurantName', 'businessEmail', 'businessPhone', 'restaurantAddress', 'city', 'province', 'postalCode'];
+          validation.missingFields = step1Fields.filter(field => !restaurant[field]);
+          break;
+        case 2:
+          if (!restaurant.bankingInfo || !restaurant.HSTNumber) {
+            validation.missingFields = ['bankingInfo', 'HSTNumber'].filter(field => !restaurant[field]);
+          }
+          break;
+        case 3:
+          const requiredDocs = ['drivingLicenseUrl', 'voidChequeUrl', 'HSTdocumentUrl', 'foodHandlingCertificateUrl'];
+          validation.missingFields = requiredDocs.filter(field => !restaurant[field]);
+          break;
+        case 4:
+          if (!restaurant.agreedToTerms || !restaurant.confirmationChecked) {
+            validation.missingFields = ['agreedToTerms', 'confirmationChecked'].filter(field => !restaurant[field]);
+          }
+          break;
+        case 5:
+          if (restaurant.paymentStatus !== 'completed') {
+            validation.missingFields = ['payment'];
+          }
+          break;
+      }
+      validation.isValid = validation.missingFields.length === 0 && validation.canAccess;
+      return this.handleSuccess(res, {
+        validation
+      }, 'Step validation retrieved successfully');
     } catch (error) {
-      console.error('Error creating payment intent:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Failed to create payment intent'
-      });
+      return this.handleError(error, res);
     }
   }
+
+  // Helper method to handle document uploads or direct URLs
+  uploadRestaurantDocuments(files = {}, body = {}) {
+    return {
+      drivingLicenseUrl: body.drivingLicenseUrl || files.drivingLicense && files.drivingLicense[0]?.location || null,
+      voidChequeUrl: body.voidChequeUrl || files.voidCheque && files.voidCheque[0]?.location || null,
+      HSTdocumentUrl: body.HSTdocumentUrl || files.HSTdocument && files.HSTdocument[0]?.location || null,
+      foodHandlingCertificateUrl: body.foodHandlingCertificateUrl || files.foodHandlingCertificate && files.foodHandlingCertificate[0]?.location || null,
+      articleofIncorporation: body.articleofIncorporation || files.articleofIncorporation && files.articleofIncorporation[0]?.location || null,
+      articleofIncorporationExpiryDate: body.articleofIncorporationExpiryDate || null,
+      foodSafetyCertificateExpiryDate: body.foodSafetyCertificateExpiryDate || null
+    };
+  }
 }
-module.exports = new RestaurantController();
+
+// Export all methods using module.exports
+const restaurantController = new RestaurantController();
+module.exports = {
+  // Authentication & Registration
+  registerRestaurant: restaurantController.registerRestaurant.bind(restaurantController),
+  login: restaurantController.login.bind(restaurantController),
+  // Email Verification
+  sendVerificationCode: restaurantController.sendVerificationCode.bind(restaurantController),
+  verifyOTP: restaurantController.verifyOTP.bind(restaurantController),
+  // Registration Steps
+  updateStep1: restaurantController.updateStep1.bind(restaurantController),
+  updateStep2: restaurantController.updateStep2.bind(restaurantController),
+  updateStep3: restaurantController.updateStep3.bind(restaurantController),
+  updateStep4: restaurantController.updateStep4.bind(restaurantController),
+  updateStep5: restaurantController.updateStep5.bind(restaurantController),
+  // Profile & Progress
+  getProfile: restaurantController.getProfile.bind(restaurantController),
+  getRegistrationProgress: restaurantController.getRegistrationProgress.bind(restaurantController),
+  getRegistrationSummary: restaurantController.getRegistrationSummary.bind(restaurantController),
+  getStepValidation: restaurantController.getStepValidation.bind(restaurantController),
+  // Payment
+  createPaymentIntent: restaurantController.createPaymentIntent.bind(restaurantController),
+  completePayment: restaurantController.completePayment.bind(restaurantController),
+  // Restaurant Management
+  updateProfile: restaurantController.updateProfile.bind(restaurantController),
+  updateMenuItems: restaurantController.updateMenuItems.bind(restaurantController),
+  updateHours: restaurantController.updateHours.bind(restaurantController),
+  updateTaxInfo: restaurantController.updateTaxInfo.bind(restaurantController),
+  // Admin Functions
+  updateRestaurantStatus: restaurantController.updateRestaurantStatus.bind(restaurantController),
+  updatePaymentStatus: restaurantController.updatePaymentStatus.bind(restaurantController)
+};

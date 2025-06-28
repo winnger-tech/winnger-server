@@ -19,10 +19,10 @@ module.exports = (sequelize) => {
       primaryKey: true
     },
     
-    // Owner Information
+    // Basic Account Information (always required)
     ownerName: {
       type: DataTypes.STRING,
-      allowNull: true, // Allow null for initial registration
+      allowNull: false,
       validate: {
         len: [2, 100]
       }
@@ -39,9 +39,11 @@ module.exports = (sequelize) => {
       type: DataTypes.STRING,
       allowNull: false
     },
+    
+    // Step 1: Owner & Business Information
     phone: {
       type: DataTypes.STRING,
-      allowNull: true, // Allow null for initial registration
+      allowNull: true,
       validate: {
         isValidPhone(value) {
           if (value && !/^\+?1?\d{10,14}$/.test(value.replace(/[\s\-\(\)]/g, ''))) {
@@ -52,61 +54,65 @@ module.exports = (sequelize) => {
     },
     identificationType: {
       type: DataTypes.ENUM('licence', 'pr_card', 'passport', 'medical_card', 'provincial_id'),
-      allowNull: true // Allow null for initial registration
+      allowNull: true
     },
-    
-    // Business Information
+    ownerAddress: {
+      type: DataTypes.STRING,
+      allowNull: true
+    },
+    businessType: {
+      type: DataTypes.ENUM('solo', 'corporate'),
+      allowNull: true
+    },
     restaurantName: {
       type: DataTypes.STRING,
-      allowNull: true, // Allow null for initial registration
+      allowNull: true
     },
-    // businessEmail: {
-    //   type: DataTypes.STRING,
-    //   allowNull: false,
-    //   validate: {
-    //     isEmail: true
-    //   }
-    // },
-    // businessPhone: {
-    //   type: DataTypes.STRING,
-    //   allowNull: false,
-    //   validate: {
-    //     isValidPhone(value) {
-    //       if (!/^\+?1?\d{10,14}$/.test(value.replace(/[\s\-\(\)]/g, ''))) {
-    //         throw new Error('Invalid phone number format');
-    //       }
-    //     }
-    //   }
-    // },
-    businessAddress: {
+    businessEmail: {
       type: DataTypes.STRING,
-      allowNull: true // Allow null for initial registration
+      allowNull: true,
+      validate: {
+        isEmail: true
+      }
+    },
+    businessPhone: {
+      type: DataTypes.STRING,
+      allowNull: true,
+      validate: {
+        isValidPhone(value) {
+          if (value && !/^\+?1?\d{10,14}$/.test(value.replace(/[\s\-\(\)]/g, ''))) {
+            throw new Error('Invalid phone number format');
+          }
+        }
+      }
+    },
+    restaurantAddress: {
+      type: DataTypes.STRING,
+      allowNull: true
     },
     city: {
       type: DataTypes.STRING,
-      allowNull: true // Allow null for initial registration
+      allowNull: true
     },
     province: {
-      type: DataTypes.ENUM(
-        'AB', 'BC', 'MB', 'NB', 'NL', 'NS', 'NT', 'NU', 'ON', 'PE', 'QC', 'SK', 'YT'
-      ),
-      allowNull: true // Allow null for initial registration
+      type: DataTypes.ENUM('AB', 'BC', 'MB', 'NB', 'NL', 'NS', 'NT', 'NU', 'ON', 'PE', 'QC', 'SK', 'YT'),
+      allowNull: true
     },
     postalCode: {
       type: DataTypes.STRING,
-      allowNull: true, // Allow null for initial registration
+      allowNull: true,
       validate: {
         is: /^[A-Za-z]\d[A-Za-z][ -]?\d[A-Za-z]\d$/
       }
     },
     
-    // Banking Information
+    // Step 2: Banking & Tax Information
     bankingInfo: {
       type: DataTypes.JSONB,
-      allowNull: true, // Allow null for initial registration
+      allowNull: true,
       validate: {
         hasRequiredFields(value) {
-          if (value) { // Only validate if value exists
+          if (value) {
             const required = ['transitNumber', 'institutionNumber', 'accountNumber'];
             for (const field of required) {
               if (!value[field]) {
@@ -126,140 +132,126 @@ module.exports = (sequelize) => {
         }
       }
     },
-    
-    // Tax Information - Dynamic based on province
-    taxInfo: {
-      type: DataTypes.JSONB,
-      allowNull: true, // Allow null for initial registration
-      validate: {
-        hasRequiredFieldsForProvince(value) {
-          if (value && this.province) { // Only validate if both values exist
-            // Province-based tax validation
-            const provinceTaxMap = {
-              'AB': ['GST'], 'BC': ['GST', 'PST'], 'MB': ['GST', 'PST'],
-              'NB': ['HST'], 'NL': ['HST'], 'NS': ['HST'],
-              'NT': ['GST'], 'NU': ['GST'], 'ON': ['HST'],
-              'PE': ['HST'], 'QC': ['GST', 'QST'], 'SK': ['GST', 'PST'],
-              'YT': ['GST']
-            };
-            
-            const restaurant = this;
-            const requiredTaxes = provinceTaxMap[restaurant.province] || [];
-            
-            for (const tax of requiredTaxes) {
-              const fieldName = `${tax.toLowerCase()}Number`;
-              if (!value[fieldName]) {
-                throw new Error(`${tax} number is required for province ${restaurant.province}`);
-              }
-            }
-          }
-        }
-      }
-    },
-    
-    // Document URLs
-    businessDocumentUrl: {
-      type: DataTypes.STRING,
-      allowNull: true, // Allow null for initial registration
-      comment: 'Bank statement or business card PDF'
-    },
-    drivingLicenseUrl: {
-      type: DataTypes.STRING,
-      allowNull: true // Allow null for initial registration
-    },
-    voidChequeUrl: {
-      type: DataTypes.STRING,
-      allowNull: true // Allow null for initial registration
-    },
-    
-    // Menu Details
-    menuDetails: {
-      type: DataTypes.JSONB,
-      allowNull: true, // Allow null for initial registration
-      defaultValue: [],
-      validate: {
-        isValidMenuFormat(value) {
-          if (value && !Array.isArray(value)) {
-            throw new Error('Menu details must be an array');
-          }
-          if (value) {
-            for (const item of value) {
-              if (!item.name || !item.price || item.price <= 0) {
-                throw new Error('Each menu item must have a name and valid price');
-              }
-              if (item.imageUrl && typeof item.imageUrl !== 'string') {
-                throw new Error('Menu item image URL must be a string');
-              }
-            }
-          }
-        }
-      }
-    },
-    
-    // Hours of Operation
-    hoursOfOperation: {
-      type: DataTypes.JSONB,
-      allowNull: true, // Allow null for initial registration
-      defaultValue: [],
-      validate: {
-        isValidHoursFormat(value) {
-          if (!Array.isArray(value)) {
-            throw new Error('Hours of operation must be an array');
-          }
-          const validDays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
-          for (const hours of value) {
-            if (!validDays.includes(hours.day)) {
-              throw new Error('Invalid day in hours of operation');
-            }
-            if (!hours.isClosed && (!hours.openTime || !hours.closeTime)) {
-              throw new Error('Open and close times required when not closed');
-            }
-          }
-        }
-      }
-    },
-    
-    // Payment Information
-    stripePaymentIntentId: {
+    HSTNumber: {
       type: DataTypes.STRING,
       allowNull: true
     },
+    
+    // Step 3: Documents
+    drivingLicenseUrl: {
+      type: DataTypes.STRING,
+      allowNull: true
+    },
+    voidChequeUrl: {
+      type: DataTypes.STRING,
+      allowNull: true
+    },
+    HSTdocumentUrl: {
+      type: DataTypes.STRING,
+      allowNull: true
+    },
+    foodHandlingCertificateUrl: {
+      type: DataTypes.STRING,
+      allowNull: true
+    },
+    articleofIncorporation: {
+      type: DataTypes.STRING,
+      allowNull: true
+    },
+    articleofIncorporationExpiryDate: {
+      type: DataTypes.DATE,
+      allowNull: true
+    },
+    foodSafetyCertificateExpiryDate: {
+      type: DataTypes.DATE,
+      allowNull: true
+    },
+    
+    // Step 4: Review & Confirmation fields
+    agreedToTerms: {
+      type: DataTypes.BOOLEAN,
+      defaultValue: false
+    },
+    confirmationChecked: {
+      type: DataTypes.BOOLEAN,
+      defaultValue: false
+    },
+    additionalNotes: {
+      type: DataTypes.TEXT,
+      allowNull: true
+    },
+    reviewCompletedAt: {
+      type: DataTypes.DATE,
+      allowNull: true
+    },
+    
+    // Registration Progress Tracking (Updated for 5 steps)
+    currentStep: {
+      type: DataTypes.INTEGER,
+      defaultValue: 1,
+      allowNull: false,
+      validate: {
+        min: 1,
+        max: 5
+      },
+      comment: 'Current registration step (1-5)'
+    },
+    completedSteps: {
+      type: DataTypes.JSONB,
+      defaultValue: [],
+      allowNull: false,
+      comment: 'Array of completed step numbers [1,2,3,4,5]'
+    },
+    isRegistrationComplete: {
+      type: DataTypes.BOOLEAN,
+      defaultValue: false,
+      comment: 'True when all 5 steps are completed'
+    },
+    
+    // Payment Information (Step 5)
     paymentStatus: {
       type: DataTypes.ENUM('pending', 'completed', 'failed'),
       defaultValue: 'pending',
       allowNull: false
     },
-    paymentAmount: {
-      type: DataTypes.DECIMAL(10, 2),
-      defaultValue: 0.00,
-      allowNull: false
+    stripePaymentIntentId: {
+      type: DataTypes.STRING,
+      allowNull: true
     },
-    paymentDate: {
+    stripePaymentMethodId: {
+      type: DataTypes.STRING,
+      allowNull: true
+    },
+    pendingPaymentIntentId: {
+      type: DataTypes.STRING,
+      allowNull: true
+    },
+    paymentCompletedAt: {
+      type: DataTypes.DATE,
+      allowNull: true
+    },
+    registrationCompletedAt: {
       type: DataTypes.DATE,
       allowNull: true
     },
     
-    // Status fields
+    // Status fields - UPDATED ENUM
     status: {
-      type: DataTypes.ENUM('pending', 'approved', 'rejected', 'suspended'),
-      defaultValue: 'pending',
-      allowNull: false
+      type: DataTypes.ENUM('incomplete', 'pending', 'pending_approval', 'approved', 'rejected', 'suspended'),
+      defaultValue: 'incomplete',
+      allowNull: false,
+      comment: 'Restaurant application status'
+    },
+    statusUpdatedAt: {
+      type: DataTypes.DATE,
+      allowNull: true
     },
     emailVerified: {
       type: DataTypes.BOOLEAN,
       defaultValue: false
     },
-    registrationStage: {
-      type: DataTypes.INTEGER,
-      defaultValue: 1,
-      allowNull: false,
-      comment: 'Stage 1: Basic info, Stage 2: Business details, Stage 3: Documents, Stage 4: Menu & hours, Stage 5: Banking & tax'
-    },
-    isRegistrationComplete: {
-      type: DataTypes.BOOLEAN,
-      defaultValue: false,
-      comment: 'True when all required fields are completed'
-    },
+    
+    // Email verification
     emailVerificationToken: {
       type: DataTypes.STRING,
       allowNull: true
@@ -269,7 +261,24 @@ module.exports = (sequelize) => {
       allowNull: true
     },
     
-    // Additional metadata
+    // Restaurant Management (Post-registration)
+    // menuDetails: {
+    //   type: DataTypes.JSONB,
+    //   allowNull: true,
+    //   comment: 'Menu items and details'
+    // },
+    hoursOfOperation: {
+      type: DataTypes.JSONB,
+      allowNull: true,
+      comment: 'Operating hours for each day'
+    },
+    // taxInfo: {
+    //   type: DataTypes.JSONB,
+    //   allowNull: true,
+    //   comment: 'Tax information and rates'
+    // },
+    
+    // Admin fields
     approvedAt: {
       type: DataTypes.DATE,
       allowNull: true
@@ -308,10 +317,13 @@ module.exports = (sequelize) => {
         fields: ['status']
       },
       {
-        fields: ['province']
+        fields: ['currentStep']
       },
       {
-        fields: ['city']
+        fields: ['paymentStatus']
+      },
+      {
+        fields: ['isRegistrationComplete']
       }
     ],
     hooks: {
@@ -322,23 +334,36 @@ module.exports = (sequelize) => {
           restaurant.password = await bcrypt.hash(restaurant.password, salt);
         }
         
-        // Ensure banking info is properly formatted
-        if (restaurant.changed('bankingInfo') && restaurant.bankingInfo) {
-          restaurant.bankingInfo = {
-            transitNumber: restaurant.bankingInfo.transitNumber,
-            institutionNumber: restaurant.bankingInfo.institutionNumber,
-            accountNumber: restaurant.bankingInfo.accountNumber
-          };
-        }
-      },
-      
-      beforeValidate: (restaurant) => {
         // Normalize phone numbers
         if (restaurant.phone) {
           restaurant.phone = restaurant.phone.replace(/[\s\-\(\)]/g, '');
         }
         if (restaurant.businessPhone) {
           restaurant.businessPhone = restaurant.businessPhone.replace(/[\s\-\(\)]/g, '');
+        }
+        
+        // Ensure completedSteps is always an array
+        if (!Array.isArray(restaurant.completedSteps)) {
+          restaurant.completedSteps = [];
+        }
+        
+        // Check if registration is complete (all 5 steps)
+        const completedSteps = restaurant.completedSteps || [];
+        const isComplete = completedSteps.includes(1) && 
+                          completedSteps.includes(2) && 
+                          completedSteps.includes(3) &&
+                          completedSteps.includes(4) &&
+                          completedSteps.includes(5);
+        
+        if (isComplete && !restaurant.isRegistrationComplete) {
+          restaurant.isRegistrationComplete = true;
+          restaurant.registrationCompletedAt = new Date();
+        }
+        
+        // Update status based on progress
+        if (restaurant.isRegistrationComplete && restaurant.status === 'incomplete') {
+          restaurant.status = 'pending_approval';
+          restaurant.statusUpdatedAt = new Date();
         }
       }
     }

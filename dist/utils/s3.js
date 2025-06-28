@@ -35,6 +35,31 @@ exports.uploadFile = async file => {
 };
 
 /**
+ * Upload a file to S3 with folder structure
+ * @param {Object} file - The file object from multer
+ * @param {string} folder - The folder name in S3
+ * @returns {Promise<string>} - S3 file URL
+ */
+exports.uploadToS3 = async (file, folder = 'uploads') => {
+  try {
+    const fileName = `${Date.now()}-${file.originalname}`;
+    const key = `${folder}/${fileName}`;
+    const params = {
+      Bucket: BUCKET_NAME,
+      Key: key,
+      Body: file.buffer,
+      ContentType: file.mimetype,
+      ACL: 'public-read'
+    };
+    const result = await s3.upload(params).promise();
+    return result.Location;
+  } catch (error) {
+    console.error('S3 upload error:', error);
+    throw new Error('Failed to upload file to S3');
+  }
+};
+
+/**
  * Delete a file from S3
  * @param {string} key - The file key in S3
  * @returns {Promise<void>}

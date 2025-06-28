@@ -12,12 +12,15 @@ const adminRoutes = require('./routes/adminRoutes');
 const driverRoutes = require('./routes/driverRoutes');
 const restaurantRoutes = require('./routes/restaurantRoutes');
 const driverStagedRoutes = require('./routes/driverStagedRoutes');
-const restaurantStagedRoutes = require('./routes/restaurantStagedRoutes');
+// const { paymentRouter} = require('./routes/paymentRoutes');
+
 
 // Load env vars
 //dotenv.config();
 
 const app = express();
+
+
 
 // Define allowed origins
 const allowedOrigins = [
@@ -88,6 +91,22 @@ app.use(cors({
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// Endpoint logging middleware - shows only endpoint hit with status code
+app.use((req, res, next) => {
+  const start = Date.now();
+  
+  // Log response with status code
+  const originalSend = res.send;
+  res.send = function(data) {
+    const duration = Date.now() - start;
+    console.log(`🌐 ${req.method} ${req.originalUrl} - ${res.statusCode} (${duration}ms)`);
+    
+    originalSend.call(this, data);
+  };
+  
+  next();
+});
+
 // Handle preflight requests
 app.options('*', cors());
 
@@ -97,7 +116,8 @@ app.use('/api/drivers', driverRoutes);
 app.use('/api/restaurants', restaurantRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/drivers-staged', driverStagedRoutes);
-app.use('/api/restaurants-staged', restaurantStagedRoutes);
+
+
 
 // Error handling middleware
 app.use((err, req, res, next) => {

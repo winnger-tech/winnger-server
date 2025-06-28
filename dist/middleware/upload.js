@@ -50,13 +50,13 @@ const driverDocumentFields = [{
   name: 'drivingAbstract',
   maxCount: 1
 }, {
-  name: 'criminalBackgroundCheck',
-  maxCount: 1
-}, {
   name: 'workEligibility',
   maxCount: 1
 }, {
   name: 'sinCard',
+  maxCount: 1
+}, {
+  name: 'criminalBackgroundCheck',
   maxCount: 1
 }];
 const driverUpload = multer({

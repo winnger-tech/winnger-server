@@ -4,32 +4,32 @@
 module.exports = {
   async up (queryInterface, Sequelize) {
     // Make fields nullable for staged registration
-    await queryInterface.changeColumn('Drivers', 'dateOfBirth', {
+    await queryInterface.changeColumn('drivers', 'dateOfBirth', {
       type: Sequelize.DATE,
       allowNull: true
     });
     
-    await queryInterface.changeColumn('Drivers', 'cellNumber', {
+    await queryInterface.changeColumn('drivers', 'cellNumber', {
       type: Sequelize.STRING,
       allowNull: true
     });
     
-    await queryInterface.changeColumn('Drivers', 'streetNameNumber', {
+    await queryInterface.changeColumn('drivers', 'streetNameNumber', {
       type: Sequelize.STRING,
       allowNull: true
     });
     
-    await queryInterface.changeColumn('Drivers', 'city', {
+    await queryInterface.changeColumn('drivers', 'city', {
       type: Sequelize.STRING,
       allowNull: true
     });
     
-    await queryInterface.changeColumn('Drivers', 'province', {
+    await queryInterface.changeColumn('drivers', 'province', {
       type: Sequelize.STRING,
       allowNull: true
     });
     
-    await queryInterface.changeColumn('Drivers', 'postalCode', {
+    await queryInterface.changeColumn('drivers', 'postalCode', {
       type: Sequelize.STRING,
       allowNull: true
     });
@@ -37,32 +37,32 @@ module.exports = {
 
   async down (queryInterface, Sequelize) {
     // Revert back to NOT NULL (this might fail if there are null values)
-    await queryInterface.changeColumn('Drivers', 'dateOfBirth', {
+    await queryInterface.changeColumn('drivers', 'dateOfBirth', {
       type: Sequelize.DATE,
       allowNull: false
     });
     
-    await queryInterface.changeColumn('Drivers', 'cellNumber', {
+    await queryInterface.changeColumn('drivers', 'cellNumber', {
       type: Sequelize.STRING,
       allowNull: false
     });
     
-    await queryInterface.changeColumn('Drivers', 'streetNameNumber', {
+    await queryInterface.changeColumn('drivers', 'streetNameNumber', {
       type: Sequelize.STRING,
       allowNull: false
     });
     
-    await queryInterface.changeColumn('Drivers', 'city', {
+    await queryInterface.changeColumn('drivers', 'city', {
       type: Sequelize.STRING,
       allowNull: false
     });
     
-    await queryInterface.changeColumn('Drivers', 'province', {
+    await queryInterface.changeColumn('drivers', 'province', {
       type: Sequelize.STRING,
       allowNull: false
     });
     
-    await queryInterface.changeColumn('Drivers', 'postalCode', {
+    await queryInterface.changeColumn('drivers', 'postalCode', {
       type: Sequelize.STRING,
       allowNull: false
     });

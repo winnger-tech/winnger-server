@@ -8,17 +8,18 @@ const {
 } = require('../models');
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 
-// 1. Import the specific, pre-configured middleware from the central upload file
-const {
-  driverUpload
-} = require('../middleware/upload');
-
-// 2. Apply the middleware directly to the route
-router.post('/register', driverUpload, driverController.register);
+// Register route - now accepts document URLs directly
+router.post('/register', driverController.register);
 
 // --- All other routes ---
 router.post('/confirm-payment', driverController.confirmPayment);
 router.post('/background-check-webhook', driverController.handleBackgroundCheckWebhook);
+
+// Check registration status
+router.get('/registration-status/:driverId', driverController.checkRegistrationStatus);
+
+// Get driver by ID
+router.get('/:driverId', driverController.getDriverById);
 router.post('/create-payment-intent', async (req, res) => {
   console.log("Received body:", req.body);
   try {

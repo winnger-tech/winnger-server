@@ -5,7 +5,6 @@ const adminRoutes = require('./routes/adminRoutes');
 const driverRoutes = require('./routes/driverRoutes');
 const restaurantRoutes = require('./routes/restaurantRoutes');
 const driverStagedRoutes = require('./routes/driverStagedRoutes');
-const restaurantStagedRoutes = require('./routes/restaurantStagedRoutes');
 const app = express();
 
 // Middleware
@@ -45,8 +44,6 @@ app.options('*', cors());
 app.use('/api/admin', adminRoutes);
 app.use('/api/drivers', driverRoutes);
 app.use('/api/restaurants', restaurantRoutes);
-app.use('/api/drivers-staged', driverStagedRoutes);
-app.use('/api/restaurants-staged', restaurantStagedRoutes);
 
 // Error handling middleware
 app.use((err, req, res, next) => {

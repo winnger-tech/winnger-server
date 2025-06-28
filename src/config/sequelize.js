@@ -12,8 +12,8 @@ module.exports = {
   },
   test: {
     username: 'postgres',
-    password: null,
-    database: 'prlaunch_test',
+    password: 'mysecretpassword',
+    database: 'postgres',
     host: 'localhost',
     port: 5432,
     dialect: 'postgres',

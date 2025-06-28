@@ -3,16 +3,13 @@ const {
   DataTypes
 } = require('sequelize');
 const bcrypt = require('bcryptjs');
-
 module.exports = sequelize => {
   class Driver extends Model {
     static associate(models) {}
-    
     async comparePassword(candidatePassword) {
       return await bcrypt.compare(candidatePassword, this.password);
     }
   }
-  
   Driver.init({
     id: {
       type: DataTypes.UUID,
@@ -26,7 +23,7 @@ module.exports = sequelize => {
     },
     profilePhotoUrl: {
       type: DataTypes.STRING,
-      allowNull: false
+      allowNull: true // No live capture required
     },
     password: {
       type: DataTypes.STRING,
@@ -38,7 +35,7 @@ module.exports = sequelize => {
     },
     middleName: {
       type: DataTypes.STRING,
-      allowNull: false
+      allowNull: true
     },
     lastName: {
       type: DataTypes.STRING,
@@ -46,143 +43,133 @@ module.exports = sequelize => {
     },
     dateOfBirth: {
       type: DataTypes.DATE,
-      allowNull: false
+      allowNull: true
     },
     cellNumber: {
       type: DataTypes.STRING,
-      allowNull: false
+      allowNull: true
     },
     streetNameNumber: {
       type: DataTypes.STRING,
-      allowNull: false
+      allowNull: true
     },
     appUniteNumber: {
       type: DataTypes.STRING,
-      allowNull: false
+      allowNull: true
     },
     city: {
       type: DataTypes.STRING,
-      allowNull: false
+      allowNull: true
     },
     province: {
       type: DataTypes.STRING,
-      allowNull: false
+      allowNull: true
     },
     postalCode: {
       type: DataTypes.STRING,
-      allowNull: false
+      allowNull: true
     },
     vehicleType: {
       type: DataTypes.ENUM('Walk', 'Scooter', 'Bike', 'Car', 'Van', 'Other'),
-      allowNull: false
+      allowNull: true
     },
     vehicleMake: {
       type: DataTypes.STRING,
-      allowNull: false
+      allowNull: true
     },
     vehicleModel: {
       type: DataTypes.STRING,
-      allowNull: false
+      allowNull: true
     },
     deliveryType: {
       type: DataTypes.ENUM('Meals', 'Parcel', 'Grocery', 'Other'),
-      allowNull: false
+      allowNull: true
     },
     yearOfManufacture: {
       type: DataTypes.INTEGER,
-      allowNull: false
+      allowNull: true
     },
     vehicleColor: {
       type: DataTypes.STRING,
-      allowNull: false
+      allowNull: true
     },
     vehicleLicensePlate: {
       type: DataTypes.STRING,
-      allowNull: false
+      allowNull: true
     },
     driversLicenseClass: {
       type: DataTypes.STRING,
-      allowNull: false
+      allowNull: true
     },
     driversLicenseFrontUrl: {
       type: DataTypes.STRING,
-      allowNull: false
+      allowNull: true
     },
     driversLicenseBackUrl: {
       type: DataTypes.STRING,
-      allowNull: false
+      allowNull: true
     },
     vehicleRegistrationUrl: {
       type: DataTypes.STRING,
-      allowNull: false
+      allowNull: true
     },
     vehicleInsuranceUrl: {
       type: DataTypes.STRING,
-      allowNull: false
+      allowNull: true
     },
     drivingAbstractUrl: {
       type: DataTypes.STRING,
-      allowNull: false
+      allowNull: true
     },
     drivingAbstractDate: {
       type: DataTypes.DATE,
-      allowNull: false
+      allowNull: true
     },
     criminalBackgroundCheckUrl: {
       type: DataTypes.STRING,
-      allowNull: false
+      allowNull: true
     },
     criminalBackgroundCheckDate: {
       type: DataTypes.DATE,
-      allowNull: false
+      allowNull: true
     },
     workEligibilityUrl: {
       type: DataTypes.STRING,
-      allowNull: false
+      allowNull: true
     },
     workEligibilityType: {
       type: DataTypes.ENUM('passport', 'pr_card', 'work_permit', 'study_permit'),
-      allowNull: false
+      allowNull: true
     },
     sinNumber: {
       type: DataTypes.STRING,
-      allowNull: false
+      allowNull: true
     },
     sinCardUrl: {
       type: DataTypes.STRING,
-      allowNull: false
+      allowNull: true
     },
     accountNumber: {
-      type: DataTypes.STRING
+      type: DataTypes.STRING,
+      allowNull: true
     },
     backgroundCheckStatus: {
       type: DataTypes.ENUM('pending', 'in_progress', 'completed', 'failed'),
-      defaultValue: 'pending',
-      allowNull: false
+      defaultValue: 'pending'
     },
     certnApplicantId: {
       type: DataTypes.STRING,
-      allowNull: false
-    },
-    backgroundCheckStatus: {
-      type: DataTypes.ENUM('pending', 'in_progress', 'completed', 'failed'),
-      defaultValue: 'pending',
-      allowNull: false
-    },
-    certnApplicantId: {
-      type: DataTypes.STRING,
-      allowNull: false
+      allowNull: true
     },
     stripePaymentIntentId: {
       type: DataTypes.STRING,
-      allowNull: false
+      allowNull: true
     },
     status: {
       type: DataTypes.ENUM('pending', 'approved', 'rejected'),
       defaultValue: 'pending',
       allowNull: false
     },
-    
     paymentStatus: {
       type: DataTypes.ENUM('pending', 'completed', 'failed'),
       defaultValue: 'pending',
@@ -190,8 +177,7 @@ module.exports = sequelize => {
     },
     emailVerified: {
       type: DataTypes.BOOLEAN,
-      defaultValue: false,
-      allowNull: false
+      defaultValue: false
     },
     consentAndDeclarations: {
       type: DataTypes.JSONB,
@@ -210,7 +196,8 @@ module.exports = sequelize => {
     }
   }, {
     sequelize,
-    modelName: 'drivers',
+    modelName: 'Driver',
+    tableName: 'drivers',
     hooks: {
       beforeSave: async driver => {
         if (driver.changed('password')) {
@@ -220,6 +207,5 @@ module.exports = sequelize => {
       }
     }
   });
-  
   return Driver;
 };

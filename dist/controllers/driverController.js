@@ -19,11 +19,13 @@ class DriverController extends BaseController {
     try {
       this.validateRequest(req);
       const {
+        // Basic Information
         email,
         password,
         firstName,
         middleName,
         lastName,
+        // Personal Details
         dateOfBirth,
         cellNumber,
         streetNameNumber,
@@ -31,18 +33,15 @@ class DriverController extends BaseController {
         city,
         province,
         postalCode,
+        // Vehicle Information
         vehicleType,
         vehicleMake,
         vehicleModel,
+        deliveryType,
         yearOfManufacture,
         vehicleColor,
         vehicleLicensePlate,
         driversLicenseClass,
-        drivingAbstractDate,
-        workEligibilityType,
-        sinNumber,
-        bankingInfo,
-        consentAndDeclarations,
         // Document URLs from frontend
         profilePhotoUrl,
         driversLicenseFrontUrl,
@@ -50,38 +49,96 @@ class DriverController extends BaseController {
         vehicleRegistrationUrl,
         vehicleInsuranceUrl,
         drivingAbstractUrl,
+        drivingAbstractDate,
         workEligibilityUrl,
+        workEligibilityType,
         sinCardUrl,
+        sinNumber,
         criminalBackgroundCheckUrl,
-        criminalBackgroundCheckDate
+        criminalBackgroundCheckDate,
+        // Banking and Consent
+        bankingInfo,
+        consentAndDeclarations
       } = req.body;
-      const parsedBankingInfo = JSON.parse(bankingInfo);
-      const parsedConsentAndDeclarations = JSON.parse(consentAndDeclarations);
 
-      // Validate required document URLs
-      const requiredDocuments = {
-        profilePhotoUrl,
-        driversLicenseFrontUrl,
-        driversLicenseBackUrl,
-        vehicleRegistrationUrl,
-        vehicleInsuranceUrl,
-        drivingAbstractUrl,
-        workEligibilityUrl
-      };
-      for (const [docType, url] of Object.entries(requiredDocuments)) {
-        if (!url) {
-          throw new Error(`Missing required document URL: ${docType}`);
+      // Parse JSON fields if they come as strings
+      let parsedBankingInfo = bankingInfo;
+      let parsedConsentAndDeclarations = consentAndDeclarations;
+      if (typeof bankingInfo === 'string') {
+        try {
+          parsedBankingInfo = JSON.parse(bankingInfo);
+        } catch (error) {
+          // Continue with original value if parsing fails
+          parsedBankingInfo = bankingInfo;
+        }
+      }
+      if (typeof consentAndDeclarations === 'string') {
+        try {
+          parsedConsentAndDeclarations = JSON.parse(consentAndDeclarations);
+        } catch (error) {
+          // Continue with original value if parsing fails
+          parsedConsentAndDeclarations = consentAndDeclarations;
         }
       }
 
-      // Create driver without payment intent
+      // Validate only the truly required fields (non-nullable in model)
+      const requiredFields = {
+        email,
+        password,
+        firstName,
+        lastName
+      };
+      const missingFields = Object.entries(requiredFields).filter(([key, value]) => !value).map(([key]) => key);
+      if (missingFields.length > 0) {
+        throw new Error(`Missing required fields: ${missingFields.join(', ')}`);
+      }
+
+      // Validate enums if provided
+      if (vehicleType) {
+        const validVehicleTypes = ['Walk', 'Scooter', 'Bike', 'Car', 'Van', 'Other'];
+        if (!validVehicleTypes.includes(vehicleType)) {
+          throw new Error('Invalid vehicle type');
+        }
+      }
+      if (deliveryType) {
+        const validDeliveryTypes = ['Meals', 'Parcel', 'Grocery', 'Other'];
+        if (!validDeliveryTypes.includes(deliveryType)) {
+          throw new Error('Invalid delivery type');
+        }
+      }
+      if (workEligibilityType) {
+        const validWorkEligibilityTypes = ['passport', 'pr_card', 'work_permit', 'study_permit'];
+        if (!validWorkEligibilityTypes.includes(workEligibilityType)) {
+          throw new Error('Invalid work eligibility type');
+        }
+      }
+      if (province) {
+        const validProvinces = ['AB', 'BC', 'MB', 'NB', 'NL', 'NS', 'NT', 'NU', 'ON', 'PE', 'QC', 'SK', 'YT'];
+        if (!validProvinces.includes(province)) {
+          throw new Error('Invalid province');
+        }
+      }
+
+      // Check if driver already exists
+      const existingDriver = await Driver.findOne({
+        where: {
+          email
+        }
+      });
+      if (existingDriver) {
+        throw new Error('Driver with this email already exists');
+      }
+
+      // Create driver with all information
       const result = await sequelize.transaction(async t => {
         const driver = await Driver.create({
+          // Basic Information
           email,
           password,
           firstName,
           middleName,
           lastName,
+          // Personal Details
           dateOfBirth,
           cellNumber,
           streetNameNumber,
@@ -89,22 +146,16 @@ class DriverController extends BaseController {
           city,
           province,
           postalCode,
+          // Vehicle Information
           vehicleType,
           vehicleMake,
           vehicleModel,
-          deliveryType: 'Meals',
-          // Default value
+          deliveryType: deliveryType || 'Meals',
+          // Default to Meals if not provided
           yearOfManufacture,
           vehicleColor,
           vehicleLicensePlate,
           driversLicenseClass,
-          drivingAbstractDate,
-          workEligibilityType,
-          sinNumber,
-          bankingInfo: parsedBankingInfo,
-          consentAndDeclarations: parsedConsentAndDeclarations,
-          paymentStatus: 'pending',
-          // Set as pending
           // Document URLs
           profilePhotoUrl,
           driversLicenseFrontUrl,
@@ -112,10 +163,23 @@ class DriverController extends BaseController {
           vehicleRegistrationUrl,
           vehicleInsuranceUrl,
           drivingAbstractUrl,
+          drivingAbstractDate,
           workEligibilityUrl,
+          workEligibilityType,
           sinCardUrl,
+          sinNumber,
           criminalBackgroundCheckUrl,
-          criminalBackgroundCheckDate
+          criminalBackgroundCheckDate,
+          // Banking and Consent
+          bankingInfo: parsedBankingInfo,
+          consentAndDeclarations: parsedConsentAndDeclarations || {},
+          // Status fields
+          paymentStatus: 'pending',
+          status: 'pending',
+          backgroundCheckStatus: 'pending',
+          registrationStage: 5,
+          // Complete registration
+          isRegistrationComplete: true
         }, {
           transaction: t
         });
@@ -124,7 +188,14 @@ class DriverController extends BaseController {
       return res.status(201).json({
         success: true,
         data: {
-          driverId: result.id
+          driverId: result.id,
+          email: result.email,
+          firstName: result.firstName,
+          lastName: result.lastName,
+          registrationStage: result.registrationStage,
+          isRegistrationComplete: result.isRegistrationComplete,
+          paymentStatus: result.paymentStatus,
+          status: result.status
         },
         message: 'Driver registration submitted successfully. Please complete payment.'
       });

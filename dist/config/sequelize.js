@@ -7,12 +7,12 @@ module.exports = {
     host: process.env.POSTGRES_HOST,
     port: process.env.POSTGRES_PORT,
     dialect: 'postgres',
-    logging: false
+    logging: console.log
   },
   test: {
     username: 'postgres',
-    password: null,
-    database: 'prlaunch_test',
+    password: 'mysecretpassword',
+    database: 'postgres',
     host: 'localhost',
     port: 5432,
     dialect: 'postgres',

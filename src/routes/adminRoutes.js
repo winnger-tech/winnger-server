@@ -22,7 +22,9 @@ const {
   bulkUpdateDriverStatus,
   bulkUpdateRestaurantStatus,
   bulkUpdateDriverPayment,
-  exportData
+  exportData,
+  getAllAdmins,
+  getAdminById
 } = require('../controllers/adminController');
 const { Admin } = require('../models');
 
@@ -52,6 +54,10 @@ router.get('/restaurants/detailed', getAllRestaurantsDetailed);
 router.get('/restaurants/:id', getRestaurantById);
 router.put('/restaurants/:id/status', validateStatusUpdate, updateRestaurantStatus);
 router.put('/restaurants/bulk/status', validateBulkUpdate, bulkUpdateRestaurantStatus);
+
+// Admin management routes
+router.get('/admins', getAllAdmins);
+router.get('/admins/:id', getAdminById);
 
 // Export routes
 router.get('/export', exportData);

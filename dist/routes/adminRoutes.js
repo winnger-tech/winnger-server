@@ -22,12 +22,12 @@ const {
   updateDriverStatus,
   updateRestaurantStatus,
   updateDriverPayment,
-  updateRestaurantPayment,
   bulkUpdateDriverStatus,
   bulkUpdateRestaurantStatus,
   bulkUpdateDriverPayment,
-  bulkUpdateRestaurantPayment,
-  exportData
+  exportData,
+  getAllAdmins,
+  getAdminById
 } = require('../controllers/adminController');
 const {
   Admin
@@ -58,9 +58,11 @@ router.get('/restaurants', getAllRestaurants);
 router.get('/restaurants/detailed', getAllRestaurantsDetailed);
 router.get('/restaurants/:id', getRestaurantById);
 router.put('/restaurants/:id/status', validateStatusUpdate, updateRestaurantStatus);
-router.put('/restaurants/:id/payment', validatePaymentUpdate, updateRestaurantPayment);
 router.put('/restaurants/bulk/status', validateBulkUpdate, bulkUpdateRestaurantStatus);
-router.put('/restaurants/bulk/payment', validateBulkUpdate, bulkUpdateRestaurantPayment);
+
+// Admin management routes
+router.get('/admins', getAllAdmins);
+router.get('/admins/:id', getAdminById);
 
 // Export routes
 router.get('/export', exportData);

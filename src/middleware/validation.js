@@ -267,5 +267,6 @@ module.exports = {
   validateRestaurantUpdate: [restaurantUpdateRules, handleValidationErrors],
   validateStatusUpdate,
   validatePaymentUpdate,
-  validateBulkUpdate
+  validateBulkUpdate,
+  validatePayment: [paymentValidationRules, handleValidationErrors],
 };

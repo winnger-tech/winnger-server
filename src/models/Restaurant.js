@@ -167,30 +167,84 @@ module.exports = (sequelize) => {
       allowNull: true
     },
     
-    // Registration Progress Tracking
+    // Step 4: Review & Confirmation fields
+    agreedToTerms: {
+      type: DataTypes.BOOLEAN,
+      defaultValue: false
+    },
+    confirmationChecked: {
+      type: DataTypes.BOOLEAN,
+      defaultValue: false
+    },
+    additionalNotes: {
+      type: DataTypes.TEXT,
+      allowNull: true
+    },
+    reviewCompletedAt: {
+      type: DataTypes.DATE,
+      allowNull: true
+    },
+    
+    // Registration Progress Tracking (Updated for 5 steps)
     currentStep: {
       type: DataTypes.INTEGER,
       defaultValue: 1,
       allowNull: false,
-      comment: 'Current registration step (1-3)'
+      validate: {
+        min: 1,
+        max: 5
+      },
+      comment: 'Current registration step (1-5)'
     },
     completedSteps: {
       type: DataTypes.JSONB,
       defaultValue: [],
       allowNull: false,
-      comment: 'Array of completed step numbers'
+      comment: 'Array of completed step numbers [1,2,3,4,5]'
     },
     isRegistrationComplete: {
       type: DataTypes.BOOLEAN,
       defaultValue: false,
-      comment: 'True when all steps are completed'
+      comment: 'True when all 5 steps are completed'
     },
     
-    // Status fields
-    status: {
-      type: DataTypes.ENUM('pending', 'approved', 'rejected', 'suspended'),
+    // Payment Information (Step 5)
+    paymentStatus: {
+      type: DataTypes.ENUM('pending', 'completed', 'failed'),
       defaultValue: 'pending',
       allowNull: false
+    },
+    stripePaymentIntentId: {
+      type: DataTypes.STRING,
+      allowNull: true
+    },
+    stripePaymentMethodId: {
+      type: DataTypes.STRING,
+      allowNull: true
+    },
+    pendingPaymentIntentId: {
+      type: DataTypes.STRING,
+      allowNull: true
+    },
+    paymentCompletedAt: {
+      type: DataTypes.DATE,
+      allowNull: true
+    },
+    registrationCompletedAt: {
+      type: DataTypes.DATE,
+      allowNull: true
+    },
+    
+    // Status fields - UPDATED ENUM
+    status: {
+      type: DataTypes.ENUM('incomplete', 'pending', 'pending_approval', 'approved', 'rejected', 'suspended'),
+      defaultValue: 'incomplete',
+      allowNull: false,
+      comment: 'Restaurant application status'
+    },
+    statusUpdatedAt: {
+      type: DataTypes.DATE,
+      allowNull: true
     },
     emailVerified: {
       type: DataTypes.BOOLEAN,
@@ -206,6 +260,23 @@ module.exports = (sequelize) => {
       type: DataTypes.DATE,
       allowNull: true
     },
+    
+    // Restaurant Management (Post-registration)
+    // menuDetails: {
+    //   type: DataTypes.JSONB,
+    //   allowNull: true,
+    //   comment: 'Menu items and details'
+    // },
+    hoursOfOperation: {
+      type: DataTypes.JSONB,
+      allowNull: true,
+      comment: 'Operating hours for each day'
+    },
+    // taxInfo: {
+    //   type: DataTypes.JSONB,
+    //   allowNull: true,
+    //   comment: 'Tax information and rates'
+    // },
     
     // Admin fields
     approvedAt: {
@@ -247,6 +318,12 @@ module.exports = (sequelize) => {
       },
       {
         fields: ['currentStep']
+      },
+      {
+        fields: ['paymentStatus']
+      },
+      {
+        fields: ['isRegistrationComplete']
       }
     ],
     hooks: {
@@ -265,18 +342,28 @@ module.exports = (sequelize) => {
           restaurant.businessPhone = restaurant.businessPhone.replace(/[\s\-\(\)]/g, '');
         }
         
-        // Update completed steps - only if not manually set
-        if (restaurant.changed('currentStep') && !restaurant.changed('completedSteps')) {
-          const completedSteps = restaurant.completedSteps || [];
-          if (!completedSteps.includes(restaurant.currentStep)) {
-            completedSteps.push(restaurant.currentStep);
-            restaurant.completedSteps = completedSteps;
-          }
+        // Ensure completedSteps is always an array
+        if (!Array.isArray(restaurant.completedSteps)) {
+          restaurant.completedSteps = [];
         }
         
-        // Check if registration is complete (all 3 steps)
-        if (restaurant.completedSteps && restaurant.completedSteps.length >= 3) {
+        // Check if registration is complete (all 5 steps)
+        const completedSteps = restaurant.completedSteps || [];
+        const isComplete = completedSteps.includes(1) && 
+                          completedSteps.includes(2) && 
+                          completedSteps.includes(3) &&
+                          completedSteps.includes(4) &&
+                          completedSteps.includes(5);
+        
+        if (isComplete && !restaurant.isRegistrationComplete) {
           restaurant.isRegistrationComplete = true;
+          restaurant.registrationCompletedAt = new Date();
+        }
+        
+        // Update status based on progress
+        if (restaurant.isRegistrationComplete && restaurant.status === 'incomplete') {
+          restaurant.status = 'pending_approval';
+          restaurant.statusUpdatedAt = new Date();
         }
       }
     }

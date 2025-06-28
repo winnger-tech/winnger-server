@@ -159,13 +159,44 @@ exports.getAllRestaurants = async (req, res) => {
       order: [['createdAt', 'DESC']] 
     });
     
+    // Add document URLs and computed fields for each restaurant
+    const restaurantsWithDocs = restaurants.map(restaurant => {
+      const restaurantData = restaurant.toJSON();
+      
+      // Add all document URLs
+      restaurantData.documents = {
+        drivingLicense: restaurant.drivingLicenseUrl,
+        voidCheque: restaurant.voidChequeUrl,
+        hstDocument: restaurant.HSTdocumentUrl,
+        foodHandlingCertificate: restaurant.foodHandlingCertificateUrl,
+        articleOfIncorporation: restaurant.articleofIncorporation
+      };
+      
+      // Add document expiry dates
+      restaurantData.documentExpiryDates = {
+        articleOfIncorporation: restaurant.articleofIncorporationExpiryDate,
+        foodSafetyCertificate: restaurant.foodSafetyCertificateExpiryDate
+      };
+      
+      // Add registration progress
+      restaurantData.registrationProgress = {
+        currentStep: restaurant.currentStep,
+        totalSteps: 5,
+        isComplete: restaurant.isRegistrationComplete,
+        completedSteps: restaurant.completedSteps || [],
+        progressPercentage: Math.round((restaurant.currentStep / 5) * 100)
+      };
+      
+      return restaurantData;
+    });
+    
     res.status(200).json({ 
       success: true, 
       total, 
-      count: restaurants.length, 
+      count: restaurantsWithDocs.length, 
       totalPages: Math.ceil(total / limit), 
       currentPage: page, 
-      data: restaurants 
+      data: restaurantsWithDocs 
     });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
@@ -189,12 +220,75 @@ exports.getDriverById = async (req, res) => {
     
     // Add computed fields for better admin view
     const driverData = driver.toJSON();
-    driverData.fullName = `${driver.firstName || ''} ${driver.lastName || ''}`.trim();
+    
+    // Add full name
+    driverData.fullName = `${driver.firstName || ''} ${driver.middleName || ''} ${driver.lastName || ''}`.trim();
+    
+    // Add all document URLs
+    driverData.documents = {
+      profilePhoto: driver.profilePhotoUrl || null,
+      driversLicenseFront: driver.driversLicenseFrontUrl || null,
+      driversLicenseBack: driver.driversLicenseBackUrl || null,
+      vehicleRegistration: driver.vehicleRegistrationUrl || null,
+      vehicleInsurance: driver.vehicleInsuranceUrl || null,
+      drivingAbstract: driver.drivingAbstractUrl || null,
+      criminalBackgroundCheck: driver.criminalBackgroundCheckUrl || null,
+      workEligibility: driver.workEligibilityUrl || null,
+      sinCard: driver.sinCardUrl || null
+    };
+    
+    // Add document dates
+    driverData.documentDates = {
+      drivingAbstract: driver.drivingAbstractDate || null,
+      criminalBackgroundCheck: driver.criminalBackgroundCheckDate || null
+    };
+    
+    // Add vehicle information
+    driverData.vehicle = {
+      type: driver.vehicleType || null,
+      make: driver.vehicleMake || null,
+      model: driver.vehicleModel || null,
+      year: driver.yearOfManufacture || null,
+      color: driver.vehicleColor || null,
+      licensePlate: driver.vehicleLicensePlate || null,
+      licenseClass: driver.driversLicenseClass || null
+    };
+    
+    // Add address information
+    driverData.address = {
+      street: driver.streetNameNumber || null,
+      unit: driver.appUniteNumber || null,
+      city: driver.city || null,
+      province: driver.province || null,
+      postalCode: driver.postalCode || null
+    };
+    
+    // Add registration progress
     driverData.registrationProgress = {
       currentStage: driver.registrationStage,
-      totalStages: driver.noofstages || 5,
+      totalStages: 5, // Assuming 5 stages
       isComplete: driver.isRegistrationComplete,
-      progressPercentage: Math.round((driver.registrationStage / (driver.noofstages || 5)) * 100)
+      progressPercentage: Math.round((driver.registrationStage / 5) * 100)
+    };
+    
+    // Add payment information
+    driverData.payment = {
+      status: driver.paymentStatus || null,
+      stripePaymentIntentId: driver.stripePaymentIntentId || null
+    };
+    
+    // Add background check information
+    driverData.backgroundCheck = {
+      status: driver.backgroundCheckStatus || null,
+      certnApplicantId: driver.certnApplicantId || null
+    };
+    
+    // Add personal information
+    driverData.personal = {
+      dateOfBirth: driver.dateOfBirth || null,
+      sinNumber: driver.sinNumber || null,
+      workEligibilityType: driver.workEligibilityType || null,
+      accountNumber: driver.accountNumber || null
     };
     
     res.status(200).json({ 
@@ -223,12 +317,89 @@ exports.getRestaurantById = async (req, res) => {
     
     // Add computed fields for better admin view
     const restaurantData = restaurant.toJSON();
+    
+    // Add all document URLs
+    restaurantData.documents = {
+      drivingLicense: restaurant.drivingLicenseUrl,
+      voidCheque: restaurant.voidChequeUrl,
+      hstDocument: restaurant.HSTdocumentUrl,
+      foodHandlingCertificate: restaurant.foodHandlingCertificateUrl,
+      articleOfIncorporation: restaurant.articleofIncorporation
+    };
+    
+    // Add document expiry dates
+    restaurantData.documentExpiryDates = {
+      articleOfIncorporation: restaurant.articleofIncorporationExpiryDate,
+      foodSafetyCertificate: restaurant.foodSafetyCertificateExpiryDate
+    };
+    
+    // Add banking information
+    restaurantData.banking = restaurant.bankingInfo || {};
+    
+    // Add business information
+    restaurantData.business = {
+      name: restaurant.restaurantName,
+      type: restaurant.businessType,
+      email: restaurant.businessEmail,
+      phone: restaurant.businessPhone,
+      address: restaurant.restaurantAddress,
+      city: restaurant.city,
+      province: restaurant.province,
+      postalCode: restaurant.postalCode
+    };
+    
+    // Add owner information
+    restaurantData.owner = {
+      name: restaurant.ownerName,
+      email: restaurant.email,
+      phone: restaurant.phone,
+      address: restaurant.ownerAddress,
+      identificationType: restaurant.identificationType
+    };
+    
+    // Add tax information
+    restaurantData.tax = {
+      hstNumber: restaurant.HSTNumber
+    };
+    
+    // Add registration progress
     restaurantData.registrationProgress = {
       currentStep: restaurant.currentStep,
-      totalSteps: 3,
+      totalSteps: 5,
       isComplete: restaurant.isRegistrationComplete,
       completedSteps: restaurant.completedSteps || [],
-      progressPercentage: Math.round((restaurant.currentStep / 3) * 100)
+      progressPercentage: Math.round((restaurant.currentStep / 5) * 100)
+    };
+    
+    // Add payment information
+    restaurantData.payment = {
+      status: restaurant.paymentStatus,
+      stripePaymentIntentId: restaurant.stripePaymentIntentId,
+      stripePaymentMethodId: restaurant.stripePaymentMethodId,
+      pendingPaymentIntentId: restaurant.pendingPaymentIntentId,
+      completedAt: restaurant.paymentCompletedAt
+    };
+    
+    // Add review and confirmation information
+    restaurantData.review = {
+      agreedToTerms: restaurant.agreedToTerms,
+      confirmationChecked: restaurant.confirmationChecked,
+      additionalNotes: restaurant.additionalNotes,
+      reviewCompletedAt: restaurant.reviewCompletedAt
+    };
+    
+    // Add operating hours
+    restaurantData.operations = {
+      hoursOfOperation: restaurant.hoursOfOperation
+    };
+    
+    // Add admin management information
+    restaurantData.admin = {
+      approvedAt: restaurant.approvedAt,
+      approvedBy: restaurant.approvedBy,
+      rejectionReason: restaurant.rejectionReason,
+      notes: restaurant.notes,
+      statusUpdatedAt: restaurant.statusUpdatedAt
     };
     
     res.status(200).json({ 
@@ -269,13 +440,77 @@ exports.getAllDriversDetailed = async (req, res) => {
     // Add computed fields for each driver
     const driversWithProgress = drivers.map(driver => {
       const driverData = driver.toJSON();
-      driverData.fullName = `${driver.firstName || ''} ${driver.lastName || ''}`.trim();
-      driverData.registrationProgress = {
-        currentStage: driver.registrationStage,
-        totalStages: driver.noofstages || 5,
-        isComplete: driver.isRegistrationComplete,
-        progressPercentage: Math.round((driver.registrationStage / (driver.noofstages || 5)) * 100)
+      
+      // Add full name
+      driverData.fullName = `${driver.firstName || ''} ${driver.middleName || ''} ${driver.lastName || ''}`.trim();
+      
+      // Add all document URLs
+      driverData.documents = {
+        profilePhoto: driver.profilePhotoUrl || null,
+        driversLicenseFront: driver.driversLicenseFrontUrl || null,
+        driversLicenseBack: driver.driversLicenseBackUrl || null,
+        vehicleRegistration: driver.vehicleRegistrationUrl || null,
+        vehicleInsurance: driver.vehicleInsuranceUrl || null,
+        drivingAbstract: driver.drivingAbstractUrl || null,
+        criminalBackgroundCheck: driver.criminalBackgroundCheckUrl || null,
+        workEligibility: driver.workEligibilityUrl || null,
+        sinCard: driver.sinCardUrl || null
       };
+      
+      // Add document dates
+      driverData.documentDates = {
+        drivingAbstract: driver.drivingAbstractDate || null,
+        criminalBackgroundCheck: driver.criminalBackgroundCheckDate || null
+      };
+      
+      // Add vehicle information
+      driverData.vehicle = {
+        type: driver.vehicleType || null,
+        make: driver.vehicleMake || null,
+        model: driver.vehicleModel || null,
+        year: driver.yearOfManufacture || null,
+        color: driver.vehicleColor || null,
+        licensePlate: driver.vehicleLicensePlate || null,
+        licenseClass: driver.driversLicenseClass || null
+      };
+      
+      // Add address information
+      driverData.address = {
+        street: driver.streetNameNumber || null,
+        unit: driver.appUniteNumber || null,
+        city: driver.city || null,
+        province: driver.province || null,
+        postalCode: driver.postalCode || null
+      };
+      
+      // Add registration progress
+      driverData.registrationProgress = {
+        currentStage: driver.registrationStage || 1,
+        totalStages: 5,
+        isComplete: driver.isRegistrationComplete || false,
+        progressPercentage: Math.round(((driver.registrationStage || 1) / 5) * 100)
+      };
+      
+      // Add payment information
+      driverData.payment = {
+        status: driver.paymentStatus || null,
+        stripePaymentIntentId: driver.stripePaymentIntentId || null
+      };
+      
+      // Add background check information
+      driverData.backgroundCheck = {
+        status: driver.backgroundCheckStatus || null,
+        certnApplicantId: driver.certnApplicantId || null
+      };
+      
+      // Add personal information
+      driverData.personal = {
+        dateOfBirth: driver.dateOfBirth || null,
+        sinNumber: driver.sinNumber || null,
+        workEligibilityType: driver.workEligibilityType || null,
+        accountNumber: driver.accountNumber || null
+      };
+      
       return driverData;
     });
     
@@ -317,13 +552,91 @@ exports.getAllRestaurantsDetailed = async (req, res) => {
     // Add computed fields for each restaurant
     const restaurantsWithProgress = restaurants.map(restaurant => {
       const restaurantData = restaurant.toJSON();
+      
+      // Add all document URLs
+      restaurantData.documents = {
+        drivingLicense: restaurant.drivingLicenseUrl,
+        voidCheque: restaurant.voidChequeUrl,
+        hstDocument: restaurant.HSTdocumentUrl,
+        foodHandlingCertificate: restaurant.foodHandlingCertificateUrl,
+        articleOfIncorporation: restaurant.articleofIncorporation
+      };
+      
+      // Add document expiry dates
+      restaurantData.documentExpiryDates = {
+        articleOfIncorporation: restaurant.articleofIncorporationExpiryDate,
+        foodSafetyCertificate: restaurant.foodSafetyCertificateExpiryDate
+      };
+      
+      // Add banking information
+      restaurantData.banking = restaurant.bankingInfo || {};
+      
+      // Add business information
+      restaurantData.business = {
+        name: restaurant.restaurantName,
+        type: restaurant.businessType,
+        email: restaurant.businessEmail,
+        phone: restaurant.businessPhone,
+        address: restaurant.restaurantAddress,
+        city: restaurant.city,
+        province: restaurant.province,
+        postalCode: restaurant.postalCode
+      };
+      
+      // Add owner information
+      restaurantData.owner = {
+        name: restaurant.ownerName,
+        email: restaurant.email,
+        phone: restaurant.phone,
+        address: restaurant.ownerAddress,
+        identificationType: restaurant.identificationType
+      };
+      
+      // Add tax information
+      restaurantData.tax = {
+        hstNumber: restaurant.HSTNumber
+      };
+      
+      // Add registration progress
       restaurantData.registrationProgress = {
         currentStep: restaurant.currentStep,
-        totalSteps: 3,
+        totalSteps: 5,
         isComplete: restaurant.isRegistrationComplete,
         completedSteps: restaurant.completedSteps || [],
-        progressPercentage: Math.round((restaurant.currentStep / 3) * 100)
+        progressPercentage: Math.round((restaurant.currentStep / 5) * 100)
       };
+      
+      // Add payment information
+      restaurantData.payment = {
+        status: restaurant.paymentStatus,
+        stripePaymentIntentId: restaurant.stripePaymentIntentId,
+        stripePaymentMethodId: restaurant.stripePaymentMethodId,
+        pendingPaymentIntentId: restaurant.pendingPaymentIntentId,
+        completedAt: restaurant.paymentCompletedAt
+      };
+      
+      // Add review and confirmation information
+      restaurantData.review = {
+        agreedToTerms: restaurant.agreedToTerms,
+        confirmationChecked: restaurant.confirmationChecked,
+        additionalNotes: restaurant.additionalNotes,
+        reviewCompletedAt: restaurant.reviewCompletedAt
+      };
+      
+      // Add operating hours
+      restaurantData.operations = {
+        hoursOfOperation: restaurant.hoursOfOperation
+      };
+      
+      // Add admin management information
+      restaurantData.admin = {
+        approvedAt: restaurant.approvedAt,
+        approvedBy: restaurant.approvedBy,
+        rejectionReason: restaurant.rejectionReason,
+        notes: restaurant.notes,
+        statusUpdatedAt: restaurant.statusUpdatedAt
+      };
+      
       return restaurantData;
     });
     
@@ -784,3 +1097,110 @@ exports.bulkUpdateDriverPayment = async (req, res) => {
 };
 
 // Note: Restaurant payment bulk update method removed as restaurants no longer have payment fields
+
+// Get detailed admin information by ID
+exports.getAdminById = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const admin = await Admin.findByPk(id, {
+      attributes: { exclude: ['password'] }
+    });
+    
+    if (!admin) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'Admin not found' 
+      });
+    }
+    
+    // Add computed fields for better admin view
+    const adminData = admin.toJSON();
+    
+    // Add admin information
+    adminData.adminInfo = {
+      name: admin.name,
+      email: admin.email,
+      role: admin.role,
+      lastLogin: admin.lastLogin
+    };
+    
+    // Add account information
+    adminData.account = {
+      id: admin.id,
+      createdAt: admin.createdAt,
+      updatedAt: admin.updatedAt
+    };
+    
+    res.status(200).json({ 
+      success: true, 
+      data: adminData 
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// Get all admins with detailed information
+exports.getAllAdmins = async (req, res) => {
+  try {
+    const page = parseInt(req.query.page, 10) || 1;
+    const limit = parseInt(req.query.limit, 10) || 10;
+    const offset = (page - 1) * limit;
+    const where = {};
+    
+    // Filter by role
+    if (req.query.role) where.role = req.query.role;
+    
+    // Search functionality
+    if (req.query.search) {
+      where[Op.or] = [
+        { name: { [Op.iLike]: `%${req.query.search}%` } },
+        { email: { [Op.iLike]: `%${req.query.search}%` } }
+      ];
+    }
+    
+    const total = await Admin.count({ where });
+    const admins = await Admin.findAll({ 
+      where, 
+      attributes: { 
+        exclude: ['password'] 
+      }, 
+      limit, 
+      offset, 
+      order: [['createdAt', 'DESC']] 
+    });
+    
+    // Add computed fields for each admin
+    const adminsWithInfo = admins.map(admin => {
+      const adminData = admin.toJSON();
+      
+      // Add admin information
+      adminData.adminInfo = {
+        name: admin.name,
+        email: admin.email,
+        role: admin.role,
+        lastLogin: admin.lastLogin
+      };
+      
+      // Add account information
+      adminData.account = {
+        id: admin.id,
+        createdAt: admin.createdAt,
+        updatedAt: admin.updatedAt
+      };
+      
+      return adminData;
+    });
+    
+    res.status(200).json({ 
+      success: true, 
+      total, 
+      count: adminsWithInfo.length, 
+      totalPages: Math.ceil(total / limit), 
+      currentPage: page, 
+      data: adminsWithInfo 
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
